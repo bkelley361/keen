@@ -1,0 +1,17 @@
+{
+  "name": "WatchTower",
+  "short_name": "WatchTower",
+  "description": "Monitor web pages, prices, and YouTube channels for changes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/file.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

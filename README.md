@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WatchTower
+
+A web monitoring app that tracks changes on web pages and YouTube channels, notifying you via email when something changes.
+
+## Features
+
+- **Web Page Monitoring** — Track any element on a page using a CSS selector. Supports JavaScript-rendered pages via headless Chrome, iframes, and Shadow DOM.
+- **YouTube Channel Monitoring** — Detects new videos, shorts, and community posts.
+- **Click Before Extract** — Optionally click a tab/button before reading the value (for pages that require interaction).
+- **Email Notifications** — Sends an email when a monitored value changes.
+- **Change History** — View a log of all detected changes per monitor.
+- **Status Indicators** — Green/amber/red dots show last check status at a glance.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Database:** InstantDB (real-time sync)
+- **Auth:** InstantDB Auth
+- **Scraping:** Cheerio (static HTML) + Puppeteer (JS-rendered pages)
+- **Email:** Nodemailer (Gmail)
+- **UI:** Tailwind CSS, shadcn/ui (Base UI), Sonner toasts
+- **Deployment:** Vercel (with `@sparticuz/chromium` for serverless Puppeteer)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- Google Chrome (for local Puppeteer)
+- An [InstantDB](https://instantdb.com) app
+- A Gmail account with an App Password
+
+### Install
+
+```bash
+npm install
+```
+
+### Environment Variables
+
+Create a `.env.local` file:
+
+```env
+NEXT_PUBLIC_INSTANT_APP_ID=your_instant_app_id
+INSTANT_ADMIN_TOKEN=your_instant_admin_token
+GMAIL_USER=your_email@gmail.com
+GMAIL_APP_PASSWORD=your_app_password
+CRON_SECRET=a_random_secret_string
+```
+
+### Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cron Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The app exposes a cron endpoint at `/api/cron/check` that checks all active monitors. It requires a secret for authorization.
 
-## Learn More
+**Using [cron-job.org](https://cron-job.org) (free):**
 
-To learn more about Next.js, take a look at the following resources:
+1. Create an account on cron-job.org
+2. Add a new job:
+   - **URL:** `https://your-domain.vercel.app/api/cron/check?secret=YOUR_CRON_SECRET`
+   - **Method:** GET
+   - **Schedule:** Every 15 minutes (or your preference)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── cron/check/route.ts    # Cron endpoint - checks all monitors
+│   │   └── monitors/check/route.ts # Manual check endpoint - single monitor
+│   ├── login/page.tsx              # Login page
+│   ├── monitors/
+│   │   ├── new/page.tsx            # Create monitor form
+│   │   └── edit/page.tsx           # Edit monitor form
+│   └── page.tsx                    # Dashboard
+├── components/                     # UI components
+├── lib/
+│   ├── email.ts                    # Email notifications via Nodemailer
+│   ├── instant.ts                  # InstantDB client
+│   ├── instant-admin.ts            # InstantDB admin client
+│   └── scraper.ts                  # Web scraping (fetch + Puppeteer)
+```
 
-## Deploy on Vercel
+## How the Scraper Works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Fetch first** — Tries a plain HTTP request with Cheerio for fast extraction
+2. **Browser fallback** — If fetch fails (JS-rendered, Cloudflare, empty result), launches headless Chrome
+3. **Click action** — If a `clickSelector` is configured, clicks that element and waits for network idle
+4. **Deep search** — If the selector isn't in the main document, searches iframes and Shadow DOM
+5. **Screenshot on failure** — Saves a debug screenshot only when the selector can't be found anywhere
