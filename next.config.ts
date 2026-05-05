@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  outputFileTracingIncludes: {
+    "/api/monitors/check": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/cron/check": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
 };
 
 export default nextConfig;
