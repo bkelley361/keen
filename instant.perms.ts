@@ -41,6 +41,14 @@ const rules = {
       delete: "auth.id != null",
     },
   },
+  userPrefs: {
+    allow: {
+      view: "auth.id != null && data.userId == auth.id",
+      create: "auth.id != null && data.userId == auth.id",
+      update: "auth.id != null && data.userId == auth.id",
+      delete: "auth.id != null && data.userId == auth.id",
+    },
+  },
 } satisfies InstantRules;
 
 export default rules;

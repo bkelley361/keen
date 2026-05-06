@@ -86,7 +86,7 @@ function extractVideoTitle(lastValue: string): string {
   return lastValue.replace(/\s*\([a-zA-Z0-9_-]{11}\)$/, "");
 }
 
-function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string }) {
+function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData; userId: string; hideThumbnails: boolean }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
@@ -171,7 +171,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <Card className={`transition-all hover:border-primary/60 ${monitor.type === "youtube" ? "row-span-2" : ""}`} />
+          <Card className={`transition-all hover:border-primary/60 ${monitor.type === "youtube" && !hideThumbnails ? "row-span-2" : ""}`} />
         }
       >
       <CardHeader className="p-3 pb-2">
@@ -226,7 +226,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
         <div className="space-y-2">
           {monitor.type === "youtube" && lastValue ? (
             <div>
-              {extractVideoId(lastValue) ? (
+              {extractVideoId(lastValue) && !hideThumbnails ? (
                 <a
                   href={`https://www.youtube.com/watch?v=${extractVideoId(lastValue)}`}
                   target="_blank"
@@ -246,8 +246,8 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                   </p>
                 </a>
               ) : (
-                <p className="text-xs font-mono bg-muted/50 border border-border/50 px-2 py-1 rounded truncate">
-                  {lastValue}
+                <p className="text-sm font-bold font-mono truncate">
+                  {extractVideoId(lastValue) ? extractVideoTitle(lastValue) : lastValue}
                 </p>
               )}
             </div>
@@ -797,9 +797,42 @@ function Dashboard() {
     feeds: { $: { where: { userId: user!.id } } },
   });
 
+  const { data: prefsData } = db.useQuery({
+    userPrefs: { $: { where: { userId: user!.id } } },
+  });
+
   const monitors = data?.monitors || [];
   const feeds = feedsData?.feeds || [];
+  const prefs = prefsData?.userPrefs?.[0] as { hideThumbnails?: boolean; cardSort?: string } | undefined;
+  const hideThumbnails = prefs?.hideThumbnails ?? false;
+  const cardSort = (prefs?.cardSort ?? "added") as "added" | "name" | "last-checked" | "status";
   const hasContent = monitors.length > 0 || feeds.length > 0;
+
+  type CardItem =
+    | { kind: "monitor"; data: (typeof monitors)[number] }
+    | { kind: "feed"; data: (typeof feeds)[number] };
+
+  const statusOrder = { changed: 0, error: 1, ok: 2, undefined: 3 };
+
+  const sortedCards: CardItem[] = [
+    ...monitors.map((m) => ({ kind: "monitor" as const, data: m })),
+    ...feeds.map((f) => ({ kind: "feed" as const, data: f })),
+  ].sort((a, b) => {
+    if (cardSort === "name") {
+      return a.data.name.localeCompare(b.data.name);
+    }
+    if (cardSort === "last-checked") {
+      const aTime = (a.kind === "monitor" ? (a.data as unknown as MonitorData).lastChecked : (a.data as unknown as FeedData).lastFetch) ?? 0;
+      const bTime = (b.kind === "monitor" ? (b.data as unknown as MonitorData).lastChecked : (b.data as unknown as FeedData).lastFetch) ?? 0;
+      return bTime - aTime;
+    }
+    if (cardSort === "status") {
+      const aStatus = a.kind === "monitor" ? ((a.data as unknown as MonitorData).lastStatus ?? "undefined") : "ok";
+      const bStatus = b.kind === "monitor" ? ((b.data as unknown as MonitorData).lastStatus ?? "undefined") : "ok";
+      return (statusOrder[aStatus as keyof typeof statusOrder] ?? 3) - (statusOrder[bStatus as keyof typeof statusOrder] ?? 3);
+    }
+    return 0;
+  });
 
   return (
     <div className="flex-1">
@@ -859,20 +892,22 @@ function Dashboard() {
                 </Link>
               </div>
               <div className="grid grid-flow-dense gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[1fr]">
-                {monitors.map((monitor) => (
-                  <MonitorCard
-                    key={monitor.id}
-                    monitor={monitor as unknown as MonitorData}
-                    userId={user!.id}
-                  />
-                ))}
-                {feeds.map((feed) => (
-                  <FeedCard
-                    key={feed.id}
-                    feed={feed as unknown as FeedData}
-                    userId={user!.id}
-                  />
-                ))}
+                {sortedCards.map((item) =>
+                  item.kind === "monitor" ? (
+                    <MonitorCard
+                      key={item.data.id}
+                      monitor={item.data as unknown as MonitorData}
+                      userId={user!.id}
+                      hideThumbnails={hideThumbnails}
+                    />
+                  ) : (
+                    <FeedCard
+                      key={item.data.id}
+                      feed={item.data as unknown as FeedData}
+                      userId={user!.id}
+                    />
+                  )
+                )}
               </div>
             </div>
             <aside className="hidden lg:block lg:w-72 shrink-0">

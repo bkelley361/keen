@@ -21,8 +21,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keen - Monitor anything",
-  description: "Monitor web pages, prices, and YouTube channels for changes",
+  title: "Keen",
+  description:
+    "Monitor web pages, prices, rss feeds, and YouTube channels for changes",
   manifest: "/manifest.json",
   themeColor: "#09090b",
   appleWebApp: {
@@ -44,8 +45,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="icon" href="/file.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/file.svg" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/favicon.ico" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>

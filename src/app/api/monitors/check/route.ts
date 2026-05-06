@@ -309,8 +309,12 @@ export async function POST(request: Request) {
 
   if (changed) {
     try {
-      const userData = await adminDb.auth.getUser({ id: monitor.userId });
-      const userEmail = userData?.email;
+      const [userData, prefsData] = await Promise.all([
+        adminDb.auth.getUser({ id: monitor.userId }),
+        adminDb.query({ userPrefs: { $: { where: { userId: monitor.userId } } } }),
+      ]);
+      const prefs = prefsData?.userPrefs?.[0] as { notificationEmail?: string } | undefined;
+      const userEmail = prefs?.notificationEmail || userData?.email;
 
       if (userEmail) {
         await sendChangeNotification({

@@ -53,6 +53,12 @@ const _schema = i.schema({
       read: i.boolean(),
       addedAt: i.number(),
     }),
+    userPrefs: i.entity({
+      userId: i.string().unique().indexed(),
+      notificationEmail: i.string().optional(),
+      hideThumbnails: i.boolean().optional(),
+      cardSort: i.string().optional(),
+    }),
   },
   links: {},
   rooms: {},
