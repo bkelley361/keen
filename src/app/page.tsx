@@ -33,7 +33,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, TrendingUp } from "lucide-react";
+import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, TrendingUp, Copy } from "lucide-react";
 
 interface MonitorData {
   id: string;
@@ -370,6 +370,31 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
           <ExternalLink className="h-4 w-4" />
           Open URL
         </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            navigator.clipboard.writeText(monitor.url);
+            toast.success("URL copied");
+          }}
+        >
+          <Copy className="h-4 w-4" />
+          Copy URL
+        </ContextMenuItem>
+        {monitor.type === "youtube" && (() => {
+          const vid = lastValue ? extractVideoId(lastValue) : null;
+          if (!vid) return null;
+          const videoUrl = `https://www.youtube.com/watch?v=${vid}`;
+          return (
+            <ContextMenuItem
+              onClick={() => {
+                navigator.clipboard.writeText(videoUrl);
+                toast.success("Video URL copied");
+              }}
+            >
+              <Copy className="h-4 w-4" />
+              Copy latest video URL
+            </ContextMenuItem>
+          );
+        })()}
         <ContextMenuItem onClick={checkNow} disabled={checking}>
           <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
           Check now
