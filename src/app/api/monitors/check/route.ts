@@ -241,6 +241,8 @@ export async function POST(request: Request) {
     lastPostText?: string;
   } = {};
 
+  const extraNotifs: { kind: "short" | "post"; oldValue: string; newValue: string; itemUrl: string }[] = [];
+
   if (monitor.type === "webpage") {
     const result = await scrapeWebpage(monitor.url, monitor.selector || "", monitor.clickSelector || undefined);
     newValue = result.value;
@@ -260,11 +262,27 @@ export async function POST(request: Request) {
         ytExtras.lastShortId = ytResult.short.videoId;
         ytExtras.lastShortTitle = ytResult.short.title;
         debug.push(`[youtube] short: ${ytResult.short.title} (${ytResult.short.videoId})`);
+        if (monitor.lastShortId && monitor.lastShortId !== ytResult.short.videoId) {
+          extraNotifs.push({
+            kind: "short",
+            oldValue: monitor.lastShortTitle || monitor.lastShortId || "",
+            newValue: `${ytResult.short.title} (${ytResult.short.videoId})`,
+            itemUrl: ytResult.short.videoUrl,
+          });
+        }
       }
       if (ytResult.post) {
         ytExtras.lastPostId = ytResult.post.videoId;
         ytExtras.lastPostText = ytResult.post.title;
         debug.push(`[youtube] post: ${ytResult.post.title} (${ytResult.post.videoId})`);
+        if (monitor.lastPostId && monitor.lastPostId !== ytResult.post.videoId) {
+          extraNotifs.push({
+            kind: "post",
+            oldValue: monitor.lastPostText || monitor.lastPostId || "",
+            newValue: ytResult.post.title,
+            itemUrl: ytResult.post.videoUrl,
+          });
+        }
       }
     } else {
       debug.push("[youtube] No result returned");
@@ -315,6 +333,22 @@ export async function POST(request: Request) {
         oldValue: monitor.lastValue || "",
         newValue,
         sentAt: Date.now(),
+        kind: monitor.type === "youtube" ? "video" : "webpage",
+        itemUrl: notificationUrl,
+      })
+    );
+  }
+
+  for (const n of extraNotifs) {
+    const notifId = instantId();
+    await adminDb.transact(
+      adminDb.tx.notifications[notifId].update({
+        monitorId: monitor.id,
+        oldValue: n.oldValue,
+        newValue: n.newValue,
+        sentAt: Date.now(),
+        kind: n.kind,
+        itemUrl: n.itemUrl,
       })
     );
   }

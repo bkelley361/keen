@@ -28,6 +28,13 @@ const _schema = i.schema({
       oldValue: i.string().optional(),
       newValue: i.string().optional(),
       sentAt: i.number().optional(),
+      kind: i.string().optional(),
+      itemUrl: i.string().optional(),
+    }),
+    feedTokens: i.entity({
+      token: i.string().unique().indexed(),
+      userId: i.string().indexed(),
+      createdAt: i.number(),
     }),
     feeds: i.entity({
       userId: i.string().indexed(),

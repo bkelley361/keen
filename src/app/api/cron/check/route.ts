@@ -235,6 +235,8 @@ export async function POST(request: Request) {
       lastPostText?: string;
     } = {};
 
+    const extraNotifs: { kind: "short" | "post"; oldValue: string; newValue: string; itemUrl: string }[] = [];
+
     if (m.type === "webpage") {
       const result = await scrapeWebpage(m.url, m.selector || "", m.clickSelector || undefined);
       newValue = result.value;
@@ -251,12 +253,42 @@ export async function POST(request: Request) {
         if (ytResult.short) {
           ytExtras.lastShortId = ytResult.short.videoId;
           ytExtras.lastShortTitle = ytResult.short.title;
+          if (m.lastShortId && m.lastShortId !== ytResult.short.videoId) {
+            extraNotifs.push({
+              kind: "short",
+              oldValue: m.lastShortTitle || m.lastShortId || "",
+              newValue: `${ytResult.short.title} (${ytResult.short.videoId})`,
+              itemUrl: ytResult.short.videoUrl,
+            });
+          }
         }
         if (ytResult.post) {
           ytExtras.lastPostId = ytResult.post.videoId;
           ytExtras.lastPostText = ytResult.post.title;
+          if (m.lastPostId && m.lastPostId !== ytResult.post.videoId) {
+            extraNotifs.push({
+              kind: "post",
+              oldValue: m.lastPostText || m.lastPostId || "",
+              newValue: ytResult.post.title,
+              itemUrl: ytResult.post.videoUrl,
+            });
+          }
         }
       }
+    }
+
+    for (const n of extraNotifs) {
+      const notifId = instantId();
+      await adminDb.transact(
+        adminDb.tx.notifications[notifId].update({
+          monitorId: m.id,
+          oldValue: n.oldValue,
+          newValue: n.newValue,
+          sentAt: Date.now(),
+          kind: n.kind,
+          itemUrl: n.itemUrl,
+        })
+      );
     }
 
     if (newValue === null) {
@@ -298,7 +330,6 @@ export async function POST(request: Request) {
         console.error(`Failed to send notification for monitor ${m.id}:`, error);
       }
 
-      // Create notification record
       const notifId = instantId();
       await adminDb.transact(
         adminDb.tx.notifications[notifId].update({
@@ -306,6 +337,8 @@ export async function POST(request: Request) {
           oldValue: m.lastValue || "",
           newValue,
           sentAt: Date.now(),
+          kind: m.type === "youtube" ? "video" : "webpage",
+          itemUrl: notificationUrl,
         })
       );
     }

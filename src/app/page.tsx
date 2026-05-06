@@ -26,7 +26,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Pencil, History, RefreshCw, Bell } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, TrendingUp } from "lucide-react";
 
 interface MonitorData {
   id: string;
@@ -151,8 +158,22 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
 
   const lastValue = resolveLastValue(monitor.lastValue);
 
+  function markExtrasRead() {
+    const updates: { seenShortId?: string; seenPostId?: string } = {};
+    if (monitor.lastShortId) updates.seenShortId = monitor.lastShortId;
+    if (monitor.lastPostId) updates.seenPostId = monitor.lastPostId;
+    if (Object.keys(updates).length) {
+      db.transact(tx.monitors[monitor.id].update(updates));
+    }
+  }
+
   return (
-    <Card className={`transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 ${monitor.type === "youtube" ? "row-span-2" : ""}`}>
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <Card className={`transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 ${monitor.type === "youtube" ? "row-span-2" : ""}`} />
+        }
+      >
       <CardHeader className="p-3 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -255,11 +276,6 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
               >
                 <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
               </Button>
-              <Link href={`/monitors/edit?id=${monitor.id}`}>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              </Link>
               {monitor.type === "youtube" && hasExtras && (
                 <Dialog open={extrasOpen} onOpenChange={openExtras}>
                   <DialogTrigger
@@ -342,88 +358,120 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                   </DialogContent>
                 </Dialog>
               )}
-              <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogTrigger
-                  render={<Button variant="ghost" size="sm" className="h-6 w-6 p-0" />}
-                >
-                  <History className="h-3 w-3" />
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Change History</DialogTitle>
-                    <DialogDescription>{monitor.name}</DialogDescription>
-                  </DialogHeader>
-                  <div className="max-h-96 overflow-y-auto space-y-3">
-                    {notifications.length === 0 ? (
-                      <p className="text-base text-muted-foreground py-6 text-center">
-                        No changes detected yet
-                      </p>
-                    ) : (
-                      (notifications as unknown as NotificationData[]).map(
-                        (n) => (
-                          <div
-                            key={n.id}
-                            className="border rounded-lg p-4 space-y-2"
-                          >
-                            <p className="text-sm text-muted-foreground">
-                              {n.sentAt
-                                ? new Date(n.sentAt).toLocaleString()
-                                : "Unknown"}
-                            </p>
-                            <div className="text-base">
-                              <span className="text-red-400 line-through">
-                                {n.oldValue || "(empty)"}
-                              </span>
-                              {" → "}
-                              <span className="text-green-400 font-medium">
-                                {n.newValue}
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      )
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <DialogTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    />
-                  }
-                >
-                  <Trash2 className="h-3 w-3" />
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Delete monitor?</DialogTitle>
-                    <DialogDescription>
-                      This will permanently delete &quot;{monitor.name}&quot; and
-                      all its notification history.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex justify-end gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDeleteOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button variant="destructive" onClick={deleteMonitor}>
-                      Delete
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
             </div>
           </div>
         </div>
       </CardContent>
-    </Card>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          onClick={() => window.open(monitor.url, "_blank", "noopener,noreferrer")}
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open URL
+        </ContextMenuItem>
+        <ContextMenuItem onClick={checkNow} disabled={checking}>
+          <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+          Check now
+        </ContextMenuItem>
+        <ContextMenuItem onClick={toggleActive}>
+          {monitor.active ? (
+            <>
+              <Pause className="h-4 w-4" />
+              Pause
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Resume
+            </>
+          )}
+        </ContextMenuItem>
+        {monitor.type === "youtube" && hasUnseenExtras && (
+          <ContextMenuItem onClick={markExtrasRead}>
+            <Bell className="h-4 w-4" />
+            Mark shorts/posts read
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          render={<Link href={`/monitors/edit?id=${monitor.id}`} />}
+        >
+          <Pencil className="h-4 w-4" />
+          Edit
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => setDetailOpen(true)}>
+          <History className="h-4 w-4" />
+          History
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => setDeleteOpen(true)}
+          className="text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change History</DialogTitle>
+            <DialogDescription>{monitor.name}</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto space-y-3">
+            {notifications.length === 0 ? (
+              <p className="text-base text-muted-foreground py-6 text-center">
+                No changes detected yet
+              </p>
+            ) : (
+              (notifications as unknown as NotificationData[]).map((n) => (
+                <div
+                  key={n.id}
+                  className="border rounded-lg p-4 space-y-2"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    {n.sentAt
+                      ? new Date(n.sentAt).toLocaleString()
+                      : "Unknown"}
+                  </p>
+                  <div className="text-base [overflow-wrap:anywhere]">
+                    <span className="text-red-400 line-through">
+                      {n.oldValue || "(empty)"}
+                    </span>
+                    {" → "}
+                    <span className="text-green-400 font-medium">
+                      {n.newValue}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete monitor?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete &quot;{monitor.name}&quot; and all
+              its notification history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteMonitor}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </ContextMenu>
   );
 }
 
@@ -437,7 +485,9 @@ interface FeedData {
 }
 
 function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data } = db.useQuery({
     feedItems: {
@@ -475,18 +525,29 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
     }
   }
 
-  function deleteFeed(e: React.MouseEvent) {
-    e.preventDefault();
+  function deleteFeed() {
     const items = allItemsData.data?.feedItems || [];
     const txns = items.map((i) => tx.feedItems[i.id].delete());
     txns.push(tx.feeds[feed.id].delete());
     db.transact(txns);
+    setDeleteOpen(false);
     toast.success("Feed deleted");
   }
 
+  function openFeed() {
+    router.push(`/feeds/${feed.id}`);
+  }
+
   return (
-    <Link href={`/feeds/${feed.id}`} className="block">
-      <Card className="transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 cursor-pointer">
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <Card
+            onClick={openFeed}
+            className="transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 cursor-pointer"
+          />
+        }
+      >
         <CardHeader className="p-3 pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 overflow-hidden">
@@ -521,28 +582,183 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
               </p>
               <div className="flex gap-0.5">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   className="h-6 w-6 p-0"
-                  onClick={(e) => { e.preventDefault(); refresh(); }}
+                  onClick={(e) => { e.stopPropagation(); refresh(); }}
                   disabled={refreshing}
                 >
                   <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                  onClick={deleteFeed}
-                >
-                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
           </div>
         </CardContent>
-      </Card>
-    </Link>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={openFeed}>
+          <ExternalLink className="h-4 w-4" />
+          Open feed
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => window.open(feed.feedUrl, "_blank", "noopener,noreferrer")}
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open source URL
+        </ContextMenuItem>
+        <ContextMenuItem onClick={refresh} disabled={refreshing}>
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => setDeleteOpen(true)}
+          className="text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete feed?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete &quot;{feed.name}&quot; and all its
+              saved articles.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteFeed}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </ContextMenu>
+  );
+}
+
+function SummaryButton({ userId, className, compact }: { userId: string; className?: string; compact?: boolean }) {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+  const { data: monitorsData } = db.useQuery({
+    monitors: { $: { where: { userId } } },
+  });
+  const myMonitorIds = new Set((monitorsData?.monitors || []).map((m) => m.id));
+
+  const { data: notifData } = db.useQuery({
+    notifications: {
+      $: { order: { serverCreatedAt: "desc" }, limit: 100 },
+    },
+  });
+
+  const recent = (notifData?.notifications || []).filter((n) => {
+    const row = n as unknown as { monitorId: string; sentAt?: number };
+    return (
+      myMonitorIds.has(row.monitorId) &&
+      typeof row.sentAt === "number" &&
+      row.sentAt >= cutoff
+    );
+  });
+
+  if (recent.length === 0) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        className={`gap-1.5 ${className || ""}`}
+      >
+        <TrendingUp className="h-4 w-4" />
+        <span className="text-muted-foreground font-normal">
+          {compact ? "0 in 24h" : "No changes in 24h"}
+        </span>
+      </Button>
+    );
+  }
+
+  const counts = { video: 0, short: 0, post: 0, webpage: 0 };
+  for (const n of recent) {
+    const k = (n as unknown as { kind?: string }).kind;
+    if (k === "video") counts.video++;
+    else if (k === "short") counts.short++;
+    else if (k === "post") counts.post++;
+    else counts.webpage++;
+  }
+
+  const parts: string[] = [];
+  if (counts.video) parts.push(`${counts.video} video${counts.video !== 1 ? "s" : ""}`);
+  if (counts.short) parts.push(`${counts.short} short${counts.short !== 1 ? "s" : ""}`);
+  if (counts.post) parts.push(`${counts.post} post${counts.post !== 1 ? "s" : ""}`);
+  if (counts.webpage) parts.push(`${counts.webpage} webpage${counts.webpage !== 1 ? "s" : ""}`);
+
+  const monitorMap = new Map((monitorsData?.monitors || []).map((m) => [m.id, m]));
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button variant="outline" size="sm" className={`gap-1.5 ${className || ""}`}>
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <span className="font-semibold">{recent.length}</span>
+            <span className="text-muted-foreground font-normal">in 24h</span>
+          </Button>
+        }
+      />
+      <DialogContent className="max-w-[22rem] sm:max-w-md max-h-[75vh] overflow-y-auto p-4">
+        <DialogHeader>
+          <DialogTitle className="text-base">Last 24 hours</DialogTitle>
+          <DialogDescription className="text-xs">
+            {recent.length} change{recent.length !== 1 ? "s" : ""} · {parts.join(" · ")}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1 mt-2">
+          {recent.map((n) => {
+            const row = n as unknown as {
+              id: string;
+              monitorId: string;
+              newValue?: string;
+              sentAt?: number;
+              kind?: string;
+              itemUrl?: string;
+            };
+            const monitor = monitorMap.get(row.monitorId) as
+              | Record<string, unknown>
+              | undefined;
+            const url = row.itemUrl || (monitor?.url as string | undefined);
+            return (
+              <a
+                key={row.id}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col gap-0.5 text-xs py-1.5 px-2 rounded border border-border/40 hover:border-primary/40 hover:bg-muted/40 transition-colors [overflow-wrap:anywhere]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate">
+                    {(monitor?.name as string) || "Unknown"}
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] px-1.5 py-0 shrink-0"
+                  >
+                    {row.kind || "change"}
+                  </Badge>
+                </div>
+                <span className="text-muted-foreground">
+                  {row.newValue}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -589,6 +805,34 @@ function Dashboard() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-4 gap-1.5 mb-4 lg:hidden">
+                <SummaryButton userId={user!.id} className="w-full px-2" compact />
+                <Dialog>
+                  <DialogTrigger
+                    render={
+                      <Button variant="outline" size="sm" className="w-full px-2">
+                        <Activity className="h-4 w-4" />
+                        <span className="ml-1">Activity</span>
+                      </Button>
+                    }
+                  />
+                  <DialogContent className="max-w-[22rem] sm:max-w-sm max-h-[75vh] overflow-y-auto p-4">
+                    <DialogHeader>
+                      <DialogTitle className="text-base">Recent Activity</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Latest changes across your monitors
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ActivityFeed userId={user!.id} />
+                  </DialogContent>
+                </Dialog>
+                <Link href="/feeds/new" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full px-2">+ Feed</Button>
+                </Link>
+                <Link href="/monitors/new" className="w-full">
+                  <Button size="sm" className="w-full px-2">+ Monitor</Button>
+                </Link>
+              </div>
               <div className="grid grid-flow-dense gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[1fr]">
                 {monitors.map((monitor) => (
                   <MonitorCard
@@ -606,19 +850,15 @@ function Dashboard() {
                 ))}
               </div>
             </div>
-            <aside className="lg:w-72 shrink-0">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-muted-foreground">
-                  {monitors.length} monitor{monitors.length !== 1 ? "s" : ""} · {feeds.length} feed{feeds.length !== 1 ? "s" : ""}
-                </p>
-                <div className="flex gap-2">
-                  <Link href="/feeds/new">
-                    <Button variant="outline" size="default">+ Feed</Button>
-                  </Link>
-                  <Link href="/monitors/new">
-                    <Button size="default">+ Monitor</Button>
-                  </Link>
-                </div>
+            <aside className="hidden lg:block lg:w-72 shrink-0">
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <SummaryButton userId={user!.id} className="w-full" />
+                <Link href="/feeds/new" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full">+ Feed</Button>
+                </Link>
+                <Link href="/monitors/new" className="w-full">
+                  <Button size="sm" className="w-full">+ Monitor</Button>
+                </Link>
               </div>
               <ActivityFeed userId={user!.id} />
             </aside>
