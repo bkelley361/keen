@@ -63,7 +63,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">WatchTower</h1>
+          <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: "var(--font-serif)" }}>Keen</h1>
           <p className="text-muted-foreground text-base">
             Monitor anything for changes
           </p>

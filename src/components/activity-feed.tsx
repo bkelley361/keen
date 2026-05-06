@@ -83,7 +83,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="lg:sticky lg:top-6 lg:border-l lg:border-border/50 lg:pl-6">
+    <div className="lg:sticky lg:top-6 lg:border-l lg:border-border lg:pl-6">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 hidden lg:block">
         Recent Activity
       </h3>
@@ -104,7 +104,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
               key={f.value}
               type="button"
               onClick={() => setFilter(f.value)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              className={`text-[10px] px-2 py-0.5 rounded-none border transition-colors font-semibold tracking-wide uppercase ${
                 active
                   ? "bg-primary text-primary-foreground border-primary"
                   : "border-border/60 text-muted-foreground hover:bg-muted"
@@ -142,7 +142,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
                     setPendingDelete({ id: notif.id, name: monitorName });
                   }
                 }}
-                className="group relative py-1.5 lg:pr-6 border-b border-border/30 last:border-0 cursor-pointer hover:bg-muted/40 rounded-sm -mx-1 px-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+                className="group relative py-1.5 lg:pr-6 border-b border-border/30 last:border-0 cursor-pointer hover:bg-muted/40 -mx-1 px-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-xs font-medium break-words min-w-0 flex-1">
@@ -163,7 +163,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
                 </div>
                 <span
                   aria-hidden="true"
-                  className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground/60 group-hover:text-destructive items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 group-hover:text-destructive items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                 >
                   <X className="h-3 w-3" />
                 </span>

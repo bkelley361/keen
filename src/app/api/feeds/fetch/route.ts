@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   try {
     const response = await fetch(feed.feedUrl as string, {
       headers: {
-        "User-Agent": "WatchTower/1.0 RSS Reader",
+        "User-Agent": "Keen/1.0 RSS Reader",
         Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
       },
     });

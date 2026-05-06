@@ -138,7 +138,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
       });
       const result = await res.json();
       if (result.debug?.length) {
-        console.group(`[WatchTower] Check: ${monitor.name}`);
+        console.group(`[Keen] Check: ${monitor.name}`);
         result.debug.forEach((line: string) => console.log(line));
         console.groupEnd();
       }
@@ -171,7 +171,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <Card className={`transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 ${monitor.type === "youtube" ? "row-span-2" : ""}`} />
+          <Card className={`transition-all hover:border-primary/60 ${monitor.type === "youtube" ? "row-span-2" : ""}`} />
         }
       >
       <CardHeader className="p-3 pb-2">
@@ -233,7 +233,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                   rel="noopener noreferrer"
                   className="block group"
                 >
-                  <div className="relative aspect-video rounded overflow-hidden border border-border/50">
+                  <div className="relative aspect-video overflow-hidden border border-border/50">
                     <Image
                       src={`https://i.ytimg.com/vi/${extractVideoId(lastValue)}/mqdefault.jpg`}
                       alt={extractVideoTitle(lastValue)}
@@ -306,9 +306,9 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                             href={`https://www.youtube.com/shorts/${monitor.lastShortId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex gap-3 rounded-lg border border-border/60 p-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                            className="flex gap-3 border border-border/60 p-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
                           >
-                            <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded bg-muted">
+                            <div className="relative h-24 w-[72px] shrink-0 overflow-hidden bg-muted">
                               <Image
                                 src={`https://i.ytimg.com/vi/${monitor.lastShortId}/hqdefault.jpg`}
                                 alt={monitor.lastShortTitle || "Short"}
@@ -344,7 +344,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                             href={`https://www.youtube.com/post/${monitor.lastPostId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block rounded-lg border border-border/60 p-3 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                            className="block border border-border/60 p-3 hover:border-primary/40 hover:bg-muted/40 transition-colors"
                           >
                             <p className="text-sm whitespace-pre-wrap break-words line-clamp-6">
                               {monitor.lastPostText || monitor.lastPostId}
@@ -454,7 +454,7 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
               (notifications as unknown as NotificationData[]).map((n) => (
                 <div
                   key={n.id}
-                  className="border rounded-lg p-4 space-y-2"
+                  className="border border-border p-4 space-y-2"
                 >
                   <p className="text-sm text-muted-foreground">
                     {n.sentAt
@@ -569,7 +569,7 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
         render={
           <Card
             onClick={openFeed}
-            className="transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 cursor-pointer"
+            className="transition-all hover:border-primary/60 cursor-pointer"
           />
         }
       >
@@ -700,7 +700,7 @@ function SummaryButton({ userId, className, compact }: { userId: string; classNa
         className={`gap-1.5 ${className || ""}`}
       >
         <TrendingUp className="h-4 w-4" />
-        <span className="text-muted-foreground font-normal">
+        <span className={`text-muted-foreground font-normal ${compact ? "text-[11px]" : ""}`}>
           {compact ? "0 in 24h" : "No changes in 24h"}
         </span>
       </Button>
@@ -728,8 +728,8 @@ function SummaryButton({ userId, className, compact }: { userId: string; classNa
     <Dialog>
       <DialogTrigger
         render={
-          <Button variant="outline" size="sm" className={`gap-1.5 ${className || ""}`}>
-            <TrendingUp className="h-4 w-4 text-primary" />
+          <Button variant="outline" size="sm" className={`gap-1.5 ${compact ? "text-[11px]" : ""} ${className || ""}`}>
+            <TrendingUp className={`text-primary ${compact ? "h-3 w-3" : "h-4 w-4"}`} />
             <span className="font-semibold">{recent.length}</span>
             <span className="text-muted-foreground font-normal">in 24h</span>
           </Button>
@@ -762,7 +762,7 @@ function SummaryButton({ userId, className, compact }: { userId: string; classNa
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col gap-0.5 text-xs py-1.5 px-2 rounded border border-border/40 hover:border-primary/40 hover:bg-muted/40 transition-colors [overflow-wrap:anywhere]"
+                className="flex flex-col gap-0.5 text-xs py-1.5 px-2 border border-border/40 hover:border-primary/40 hover:bg-muted/40 transition-colors [overflow-wrap:anywhere]"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium truncate">
@@ -835,8 +835,8 @@ function Dashboard() {
                 <Dialog>
                   <DialogTrigger
                     render={
-                      <Button variant="outline" size="sm" className="w-full px-2">
-                        <Activity className="h-4 w-4" />
+                      <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
+                        <Activity className="h-3 w-3" />
                         <span className="ml-1">Activity</span>
                       </Button>
                     }
@@ -852,10 +852,10 @@ function Dashboard() {
                   </DialogContent>
                 </Dialog>
                 <Link href="/feeds/new" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full px-2">+ Feed</Button>
+                  <Button size="sm" className="w-full px-2 text-[11px]">Feed</Button>
                 </Link>
                 <Link href="/monitors/new" className="w-full">
-                  <Button size="sm" className="w-full px-2">+ Monitor</Button>
+                  <Button size="sm" className="w-full px-2 text-[11px]">Monitor</Button>
                 </Link>
               </div>
               <div className="grid grid-flow-dense gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[1fr]">
@@ -879,10 +879,10 @@ function Dashboard() {
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <SummaryButton userId={user!.id} className="w-full" />
                 <Link href="/feeds/new" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full">+ Feed</Button>
+                  <Button size="sm" className="w-full">Feed</Button>
                 </Link>
                 <Link href="/monitors/new" className="w-full">
-                  <Button size="sm" className="w-full">+ Monitor</Button>
+                  <Button size="sm" className="w-full">Monitor</Button>
                 </Link>
               </div>
               <ActivityFeed userId={user!.id} />

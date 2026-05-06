@@ -1,23 +1,76 @@
-import * as cheerio from "cheerio";
+import { detectPriceFromPage } from "@/lib/scraper";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const PRICE_SELECTORS = [
-  "[data-price]",
+  // Amazon
   ".a-price .a-offscreen",
   ".a-price-whole",
   "#priceblock_ourprice",
   "#priceblock_dealprice",
-  ".price--current .price",
-  "[data-testid=\"price\"]",
+  "#corePriceDisplay_desktop_feature_div .a-offscreen",
+  // Best Buy
+  ".priceView-hero-price span[aria-hidden='true']",
+  ".priceView-customer-price span",
+  "[data-testid='customer-price'] span",
+  // Target
+  "[data-test='product-price']",
+  "[data-test='current-price']",
+  ".h-text-bs[data-test='product-price']",
+  // Walmart
+  "[itemprop='price']",
+  "[data-testid='price-wrap'] span[aria-hidden='true']",
+  ".price-characteristic",
+  // Old Navy / Gap / Banana Republic / Athleta (same platform)
+  ".product-price .sale-price",
+  ".product-price .regular-price",
+  "[data-testid='sale-price']",
+  "[data-testid='regular-price']",
+  // Nike
   ".product-price",
-  "[itemprop=\"price\"]",
+  "[data-test='product-price-reduced']",
+  "[data-test='product-price']",
+  // Adidas
+  ".gl-price-item--sale",
+  ".gl-price-item",
+  // Costco
+  ".your-price .value",
+  ".price .value",
+  // Home Depot
+  "#standard-price",
+  ".price-format__main-price",
+  "[data-testid='pip-price']",
+  // Lowe's
+  "[data-testid='price-main-value']",
+  ".art-pd-price",
+  // Newegg
+  ".price-current strong",
+  ".price-was-data",
+  // eBay
+  ".x-price-primary span[itemprop='price']",
+  ".x-price-primary",
+  // Etsy
+  ".wt-text-title-larger",
+  "[data-buy-box-region='price'] .currency-value",
+  // B&H Photo
+  ".price_1DKpu",
+  "[data-selenium='price']",
+  // Chewy
+  "[data-testid='price']",
+  ".ga-eec__price",
+  // Generic structured data
+  "[data-price]",
+  // Generic patterns
+  ".price--current .price",
   ".sale-price",
   ".current-price",
+  ".offer-price",
+  ".price-current",
+  ".price-box .price",
+  "#product-price",
   ".price",
 ];
-
-const PRICE_PATTERN = /[\$€£]\s?\d+[.,]?\d*|\d+[.,]\d{2}/;
 
 export async function POST(request: Request) {
   const { url } = await request.json();
@@ -27,31 +80,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-    });
-    const html = await response.text();
-    const $ = cheerio.load(html);
-
-    for (const selector of PRICE_SELECTORS) {
-      const el = $(selector).first();
-      if (el.length === 0) continue;
-
-      const text = (el.attr("content") || el.text()).trim();
-      if (PRICE_PATTERN.test(text)) {
-        const match = text.match(PRICE_PATTERN);
-        return Response.json({
-          selector,
-          detectedPrice: match ? match[0] : text,
-        });
-      }
+    const result = await detectPriceFromPage(url, PRICE_SELECTORS);
+    if (result) {
+      return Response.json({ selector: result.selector, detectedPrice: result.price });
     }
-
     return Response.json({ error: "Could not detect a price on this page" });
-  } catch {
+  } catch (err) {
+    console.error("[detect-price]", err);
     return Response.json({ error: "Failed to fetch the page" }, { status: 500 });
   }
 }

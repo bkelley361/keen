@@ -58,7 +58,7 @@ export async function GET(
   if (monitors.length === 0) {
     const empty = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>WatchTower Changes</title>
+  <title>Keen Changes</title>
   <id>${selfUrl}</id>
   <updated>${new Date().toISOString()}</updated>
   <link href="${selfUrl}" rel="self"/>
@@ -107,7 +107,7 @@ export async function GET(
 
   const feed = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>WatchTower Changes</title>
+  <title>Keen Changes</title>
   <id>${selfUrl}</id>
   <updated>${new Date().toISOString()}</updated>
   <link href="${selfUrl}" rel="self"/>

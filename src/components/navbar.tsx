@@ -105,10 +105,10 @@ export function Navbar() {
   const { user } = db.useAuth();
 
   return (
-    <nav className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+    <nav className="border-b border-border bg-background sticky top-0 z-50">
       <div className="w-full px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-bold text-xl tracking-tight">
-          WatchTower
+        <Link href="/" className="font-bold text-2xl tracking-tight" style={{ fontFamily: "var(--font-serif)" }}>
+          Keen
         </Link>
         <div className="flex items-center gap-4">
           <ThemeToggle />

@@ -209,6 +209,47 @@ async function scrapeWithBrowser(
   }
 }
 
+export async function detectPriceFromPage(
+  url: string,
+  selectors: string[]
+): Promise<{ selector: string; price: string } | null> {
+  const puppeteer = (await import("puppeteer-core")).default;
+  const { executablePath, args } = await getExecPath();
+
+  const browser = await puppeteer.launch({
+    args,
+    defaultViewport: { width: 1280, height: 720 },
+    executablePath,
+    headless: true,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    );
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await new Promise((r) => setTimeout(r, 2000));
+
+    for (const selector of selectors) {
+      const result = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        return (el as HTMLElement).innerText?.trim() || (el as HTMLInputElement).value?.trim() || el.getAttribute("content")?.trim() || null;
+      }, selector);
+
+      if (result && /[\$€£]\s?\d+[.,]?\d*|\d+[.,]\d{2}/.test(result)) {
+        const match = result.match(/[\$€£]\s?\d+[.,]?\d*|\d+[.,]\d{2}/);
+        return { selector, price: match ? match[0] : result };
+      }
+    }
+
+    return null;
+  } finally {
+    await browser.close();
+  }
+}
+
 export async function scrapeWebpage(
   url: string,
   selector: string,
