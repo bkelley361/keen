@@ -13,13 +13,39 @@ interface YouTubeResult {
   contentType: "video" | "short" | "post";
 }
 
+function decodeJsonString(s: string): string {
+  try {
+    return JSON.parse(`"${s}"`);
+  } catch {
+    return s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  }
+}
+
+function looksLikeJsonGarbage(s: string): boolean {
+  return /"(navigationEndpoint|clickTrackingParams|commandMetadata|webCommandMetadata|browseEndpoint|webPageType|apiUrl)"/.test(s);
+}
+
+function sanitizeTitle(raw: string, fallback: string): string {
+  const decoded = decodeJsonString(raw).replace(/\s*-\s*play Short$/i, "").trim();
+  if (!decoded || looksLikeJsonGarbage(decoded)) return fallback;
+  return decoded;
+}
+
 async function resolveChannelId(url: string): Promise<string | null> {
+  console.log(`[yt] resolveChannelId: ${url}`);
   const channelMatch = url.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/);
-  if (channelMatch) return channelMatch[1];
+  if (channelMatch) {
+    console.log(`[yt] resolved from /channel/ path: ${channelMatch[1]}`);
+    return channelMatch[1];
+  }
 
   const handleMatch = url.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/);
-  if (!handleMatch) return null;
+  if (!handleMatch) {
+    console.log(`[yt] no channel or handle match in url`);
+    return null;
+  }
 
+  console.log(`[yt] fetching handle page to resolve channelId for @${handleMatch[1]}`);
   const pageResponse = await fetch(url, {
     headers: {
       "User-Agent":
@@ -27,20 +53,28 @@ async function resolveChannelId(url: string): Promise<string | null> {
     },
   });
   const pageHtml = await pageResponse.text();
+  console.log(`[yt] handle page status=${pageResponse.status} bytes=${pageHtml.length}`);
   const channelIdMatch = pageHtml.match(/"externalId":"(UC[a-zA-Z0-9_-]+)"/);
+  console.log(`[yt] resolved channelId: ${channelIdMatch ? channelIdMatch[1] : "null"}`);
   return channelIdMatch ? channelIdMatch[1] : null;
 }
 
 async function checkYouTubeFeed(channelId: string): Promise<YouTubeResult | null> {
   const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+  console.log(`[yt] feed fetch: ${feedUrl}`);
   const response = await fetch(feedUrl);
   const xml = await response.text();
+  console.log(`[yt] feed status=${response.status} bytes=${xml.length}`);
 
   const titleMatch = xml.match(/<entry>[\s\S]*?<title>(.*?)<\/title>/);
   const videoIdMatch = xml.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
 
-  if (!titleMatch || !videoIdMatch) return null;
+  if (!titleMatch || !videoIdMatch) {
+    console.log(`[yt] feed no match (title=${!!titleMatch}, videoId=${!!videoIdMatch})`);
+    return null;
+  }
 
+  console.log(`[yt] feed found: "${titleMatch[1]}" (${videoIdMatch[1]})`);
   return {
     title: titleMatch[1],
     videoId: videoIdMatch[1],
@@ -52,6 +86,7 @@ async function checkYouTubeFeed(channelId: string): Promise<YouTubeResult | null
 async function checkYouTubeShorts(channelId: string): Promise<YouTubeResult | null> {
   try {
     const shortsUrl = `https://www.youtube.com/channel/${channelId}/shorts`;
+    console.log(`[yt] shorts fetch: ${shortsUrl}`);
     const response = await fetch(shortsUrl, {
       headers: {
         "User-Agent":
@@ -59,17 +94,32 @@ async function checkYouTubeShorts(channelId: string): Promise<YouTubeResult | nu
       },
     });
     const html = await response.text();
+    console.log(`[yt] shorts status=${response.status} bytes=${html.length}`);
 
-    const shortMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"[\s\S]*?"title":\{"runs":\[\{"text":"(.*?)"\}/);
-    if (!shortMatch) return null;
+    const idMatch = html.match(/"shortsLockupViewModel"[\s\S]*?"videoId":"([a-zA-Z0-9_-]{11})"/)
+      || html.match(/"reelWatchEndpoint":\{"videoId":"([a-zA-Z0-9_-]{11})"/)
+      || html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+    if (!idMatch) {
+      console.log(`[yt] shorts no videoId`);
+      return null;
+    }
+    const videoId = idMatch[1];
 
+    const headlineMatch = html.match(new RegExp(`"videoId":"${videoId}"[\\s\\S]{0,800}?"headline":\\{"simpleText":"((?:\\\\.|[^"\\\\])*)"`))
+      || html.match(new RegExp(`"videoId":"${videoId}"[\\s\\S]{0,800}?"accessibilityText":"((?:\\\\.|[^"\\\\])*)"`));
+    const title = headlineMatch
+      ? sanitizeTitle(headlineMatch[1], "Hidden or unavailable short")
+      : "Hidden or unavailable short";
+
+    console.log(`[yt] shorts found: "${title}" (${videoId})`);
     return {
-      title: shortMatch[2],
-      videoId: shortMatch[1],
-      videoUrl: `https://www.youtube.com/shorts/${shortMatch[1]}`,
+      title,
+      videoId,
+      videoUrl: `https://www.youtube.com/shorts/${videoId}`,
       contentType: "short",
     };
-  } catch {
+  } catch (error) {
+    console.error(`[yt] shorts error:`, error);
     return null;
   }
 }
@@ -77,6 +127,7 @@ async function checkYouTubeShorts(channelId: string): Promise<YouTubeResult | nu
 async function checkYouTubePosts(channelId: string): Promise<YouTubeResult | null> {
   try {
     const communityUrl = `https://www.youtube.com/channel/${channelId}/community`;
+    console.log(`[yt] posts fetch: ${communityUrl}`);
     const response = await fetch(communityUrl, {
       headers: {
         "User-Agent":
@@ -84,39 +135,61 @@ async function checkYouTubePosts(channelId: string): Promise<YouTubeResult | nul
       },
     });
     const html = await response.text();
+    console.log(`[yt] posts status=${response.status} bytes=${html.length}`);
 
-    const postMatch = html.match(/"postId":"([a-zA-Z0-9_-]+)"[\s\S]*?"text":"(.*?)"/);
-    if (!postMatch) return null;
+    const idMatch = html.match(/"postId":"([a-zA-Z0-9_-]+)"/);
+    if (!idMatch) {
+      console.log(`[yt] posts no postId`);
+      return null;
+    }
+    const postId = idMatch[1];
 
+    const textRunsMatch = html.match(new RegExp(`"postId":"${postId}"[\\s\\S]{0,2000}?"contentText":\\{"runs":\\[([\\s\\S]*?)\\]\\}`));
+    let title = "Hidden or unavailable post";
+    if (textRunsMatch) {
+      const runs = Array.from(textRunsMatch[1].matchAll(/"text":"((?:\\.|[^"\\])*)"/g));
+      const joined = runs.map((r) => decodeJsonString(r[1])).join("").trim();
+      if (joined && !looksLikeJsonGarbage(joined)) {
+        title = joined.slice(0, 280);
+      }
+    }
+
+    console.log(`[yt] posts found: "${title}" (${postId})`);
     return {
-      title: postMatch[2].slice(0, 100),
-      videoId: postMatch[1],
-      videoUrl: `https://www.youtube.com/post/${postMatch[1]}`,
+      title,
+      videoId: postId,
+      videoUrl: `https://www.youtube.com/post/${postId}`,
       contentType: "post",
     };
-  } catch {
+  } catch (error) {
+    console.error(`[yt] posts error:`, error);
     return null;
   }
 }
 
-async function checkYouTube(url: string): Promise<YouTubeResult | null> {
-  try {
-    const channelId = await resolveChannelId(url);
-    if (!channelId) return null;
+interface YouTubeCheckResult {
+  video: YouTubeResult | null;
+  short: YouTubeResult | null;
+  post: YouTubeResult | null;
+}
 
-    const [feedResult, shortsResult, postsResult] = await Promise.all([
+async function checkYouTube(url: string): Promise<YouTubeCheckResult | null> {
+  try {
+    console.log(`[yt] checkYouTube start: ${url}`);
+    const channelId = await resolveChannelId(url);
+    if (!channelId) {
+      console.log(`[yt] checkYouTube aborted: no channelId`);
+      return null;
+    }
+
+    const [video, short, post] = await Promise.all([
       checkYouTubeFeed(channelId),
       checkYouTubeShorts(channelId),
       checkYouTubePosts(channelId),
     ]);
 
-    const results = [feedResult, shortsResult, postsResult].filter(
-      (r): r is YouTubeResult => r !== null
-    );
-
-    if (results.length === 0) return null;
-
-    return results[0];
+    console.log(`[yt] checkYouTube results: video=${!!video} short=${!!short} post=${!!post}`);
+    return { video, short, post };
   } catch (error) {
     console.error(`Failed to check YouTube for ${url}:`, error);
     return null;
@@ -147,10 +220,20 @@ export async function POST(request: Request) {
       selector?: string;
       clickSelector?: string;
       lastValue?: string;
+      lastShortId?: string;
+      lastShortTitle?: string;
+      lastPostId?: string;
+      lastPostText?: string;
     };
 
     let newValue: string | null = null;
     let notificationUrl = m.url;
+    const ytExtras: {
+      lastShortId?: string;
+      lastShortTitle?: string;
+      lastPostId?: string;
+      lastPostText?: string;
+    } = {};
 
     if (m.type === "webpage") {
       const result = await scrapeWebpage(m.url, m.selector || "", m.clickSelector || undefined);
@@ -161,15 +244,25 @@ export async function POST(request: Request) {
     } else if (m.type === "youtube") {
       const ytResult = await checkYouTube(m.url);
       if (ytResult) {
-        newValue = `${ytResult.title} (${ytResult.videoId})`;
-        notificationUrl = ytResult.videoUrl;
+        if (ytResult.video) {
+          newValue = `${ytResult.video.title} (${ytResult.video.videoId})`;
+          notificationUrl = ytResult.video.videoUrl;
+        }
+        if (ytResult.short) {
+          ytExtras.lastShortId = ytResult.short.videoId;
+          ytExtras.lastShortTitle = ytResult.short.title;
+        }
+        if (ytResult.post) {
+          ytExtras.lastPostId = ytResult.post.videoId;
+          ytExtras.lastPostText = ytResult.post.title;
+        }
       }
     }
 
     if (newValue === null) {
       results.push({ id: m.id, changed: false, error: "Failed to fetch" });
       await adminDb.transact(
-        adminDb.tx.monitors[m.id].update({ lastChecked: Date.now(), lastStatus: "error" })
+        adminDb.tx.monitors[m.id].update({ lastChecked: Date.now(), lastStatus: "error", ...ytExtras })
       );
       continue;
     }
@@ -181,6 +274,7 @@ export async function POST(request: Request) {
         lastValue: newValue,
         lastChecked: Date.now(),
         lastStatus: changed ? "changed" : "ok",
+        ...ytExtras,
       })
     );
 

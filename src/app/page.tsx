@@ -26,7 +26,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Pencil, History, RefreshCw } from "lucide-react";
+import { Trash2, Pencil, History, RefreshCw, Bell } from "lucide-react";
 
 interface MonitorData {
   id: string;
@@ -38,6 +38,12 @@ interface MonitorData {
   lastChecked?: number;
   lastStatus?: "ok" | "changed" | "error";
   active: boolean;
+  lastShortId?: string;
+  lastShortTitle?: string;
+  lastPostId?: string;
+  lastPostText?: string;
+  seenShortId?: string;
+  seenPostId?: string;
 }
 
 function resolveLastValue(raw: MonitorData["lastValue"]): string | undefined {
@@ -76,7 +82,23 @@ function extractVideoTitle(lastValue: string): string {
 function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  const hasNewShort = !!monitor.lastShortId && monitor.lastShortId !== monitor.seenShortId;
+  const hasNewPost = !!monitor.lastPostId && monitor.lastPostId !== monitor.seenPostId;
+  const hasExtras = !!monitor.lastShortId || !!monitor.lastPostId;
+  const hasUnseenExtras = hasNewShort || hasNewPost;
+
+  function openExtras(open: boolean) {
+    setExtrasOpen(open);
+    if (open && hasUnseenExtras) {
+      const updates: { seenShortId?: string; seenPostId?: string } = {};
+      if (monitor.lastShortId) updates.seenShortId = monitor.lastShortId;
+      if (monitor.lastPostId) updates.seenPostId = monitor.lastPostId;
+      db.transact(tx.monitors[monitor.id].update(updates));
+    }
+  }
 
   const { data } = db.useQuery({
     notifications: {
@@ -238,6 +260,88 @@ function MonitorCard({ monitor, userId }: { monitor: MonitorData; userId: string
                   <Pencil className="h-3 w-3" />
                 </Button>
               </Link>
+              {monitor.type === "youtube" && hasExtras && (
+                <Dialog open={extrasOpen} onOpenChange={openExtras}>
+                  <DialogTrigger
+                    render={<Button variant="ghost" size="sm" className="h-6 w-6 p-0 relative" />}
+                  >
+                    <Bell className="h-3 w-3" />
+                    {hasUnseenExtras && (
+                      <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+                    )}
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Shorts & Community Posts</DialogTitle>
+                      <DialogDescription>{monitor.name}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-5">
+                      <section className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Latest Short
+                          </h3>
+                          {hasNewShort && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">New</Badge>
+                          )}
+                        </div>
+                        {monitor.lastShortId ? (
+                          <a
+                            href={`https://www.youtube.com/shorts/${monitor.lastShortId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex gap-3 rounded-lg border border-border/60 p-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                          >
+                            <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded bg-muted">
+                              <Image
+                                src={`https://i.ytimg.com/vi/${monitor.lastShortId}/hqdefault.jpg`}
+                                alt={monitor.lastShortTitle || "Short"}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
+                              <p className="text-sm font-medium line-clamp-3 break-words">
+                                {monitor.lastShortTitle || monitor.lastShortId}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground font-mono truncate">
+                                {monitor.lastShortId}
+                              </p>
+                            </div>
+                          </a>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">None detected yet.</p>
+                        )}
+                      </section>
+
+                      <section className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Latest Community Post
+                          </h3>
+                          {hasNewPost && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">New</Badge>
+                          )}
+                        </div>
+                        {monitor.lastPostId ? (
+                          <a
+                            href={`https://www.youtube.com/post/${monitor.lastPostId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-lg border border-border/60 p-3 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                          >
+                            <p className="text-sm whitespace-pre-wrap break-words line-clamp-6">
+                              {monitor.lastPostText || monitor.lastPostId}
+                            </p>
+                          </a>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">None detected yet.</p>
+                        )}
+                      </section>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
               <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
                 <DialogTrigger
                   render={<Button variant="ghost" size="sm" className="h-6 w-6 p-0" />}
