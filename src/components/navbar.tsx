@@ -12,9 +12,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { Settings, LogOut, Mail, ImageOff, Sun, Moon, ArrowUpDown, Copy, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Settings, LogOut, Mail, ImageOff, Sun, Moon, ArrowUpDown, Copy, RefreshCw, Search } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Menu } from "@base-ui/react/menu";
 import { cn } from "@/lib/utils";
@@ -300,6 +301,167 @@ function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string
   );
 }
 
+function GlobalSearch({ userId }: { userId: string }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const { data: feedsData } = db.useQuery({ feeds: { $: { where: { userId } } } });
+  const { data: monitorsData } = db.useQuery({ monitors: { $: { where: { userId } } } });
+  const { data: itemsData } = db.useQuery({ feedItems: { $: { where: {} } } });
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+
+  const feedResults = q
+    ? (feedsData?.feeds || []).filter((f) => {
+        const feed = f as unknown as { name: string; feedUrl: string; tags?: string };
+        return feed.name.toLowerCase().includes(q) || feed.feedUrl.toLowerCase().includes(q) || (feed.tags ?? "").toLowerCase().includes(q);
+      })
+    : [];
+
+  const monitorResults = q
+    ? (monitorsData?.monitors || []).filter((m) => {
+        const mon = m as unknown as { name: string; url: string; tags?: string };
+        return mon.name.toLowerCase().includes(q) || mon.url.toLowerCase().includes(q) || (mon.tags ?? "").toLowerCase().includes(q);
+      })
+    : [];
+
+  const feedMap = new Map((feedsData?.feeds || []).map((f) => [f.id, f.name as string]));
+
+  const articleResults = q
+    ? (itemsData?.feedItems || [])
+        .filter((i) => {
+          const item = i as unknown as { title: string; feedId: string };
+          return item.title.toLowerCase().includes(q);
+        })
+        .slice(0, 20)
+    : [];
+
+  const hasResults = feedResults.length > 0 || monitorResults.length > 0 || articleResults.length > 0;
+
+  return (
+    <>
+      <Button variant="outline" size="default" onClick={() => setOpen(true)}>
+        <Search className="h-4 w-4" />
+      </Button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+        >
+          <div className="absolute left-1/2 top-[12%] -translate-x-1/2 w-full max-w-lg px-4">
+            {/* Search input — fixed position, never moves */}
+            <div className="flex items-center gap-2 border border-border bg-popover px-3 shadow-lg">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+                placeholder="Search feeds, monitors, articles..."
+                className="flex-1 py-3 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+
+            {/* Results — appear below, don't affect input position */}
+            <div className="border border-t-0 border-border bg-popover shadow-lg max-h-[50vh] overflow-y-auto">
+              {!q && (
+                <p className="text-sm text-muted-foreground text-center py-8">Start typing to search</p>
+              )}
+              {q && !hasResults && (
+                <p className="text-sm text-muted-foreground text-center py-8">No results for &quot;{query}&quot;</p>
+              )}
+              {monitorResults.length > 0 && (
+                <div>
+                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Monitors</p>
+                  {monitorResults.map((m) => {
+                    const monitor = m as unknown as { id: string; name: string; url: string; lastStatus?: string };
+                    return (
+                      <button
+                        key={monitor.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                        onClick={() => { setOpen(false); router.push("/"); }}
+                      >
+                        <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${monitor.lastStatus === "error" ? "bg-red-500" : monitor.lastStatus === "changed" ? "bg-amber-500" : "bg-green-500"}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{monitor.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{monitor.url}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {feedResults.length > 0 && (
+                <div>
+                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Feeds</p>
+                  {feedResults.map((f) => {
+                    const feed = f as unknown as { id: string; name: string; feedUrl: string };
+                    return (
+                      <button
+                        key={feed.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                        onClick={() => { setOpen(false); router.push(`/feeds/${feed.id}`); }}
+                      >
+                        <span className="inline-block h-2 w-2 rounded-full shrink-0 bg-blue-500" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{feed.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{feed.feedUrl}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {articleResults.length > 0 && (
+                <div>
+                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Articles</p>
+                  {articleResults.map((i) => {
+                    const item = i as unknown as { id: string; title: string; feedId: string; read: boolean };
+                    return (
+                      <button
+                        key={item.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                        onClick={() => { setOpen(false); router.push(`/feeds/${item.feedId}/article?item=${item.id}`); }}
+                      >
+                        <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${item.read ? "bg-muted-foreground/30" : "bg-orange-500"}`} />
+                        <div className="min-w-0">
+                          <p className={`text-sm truncate ${item.read ? "font-normal text-muted-foreground" : "font-medium"}`}>{item.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{feedMap.get(item.feedId) ?? "Unknown feed"}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function RefreshAllButton({ userId }: { userId: string }) {
   const [refreshing, setRefreshing] = useState(false);
 
@@ -375,6 +537,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {user && (
             <>
+              <GlobalSearch userId={user.id} />
               <RefreshAllButton userId={user.id} />
               <SettingsMenu userId={user.id} userEmail={user.email ?? ""} />
             </>

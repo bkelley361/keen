@@ -22,6 +22,8 @@ const _schema = i.schema({
       lastPostText: i.string().optional(),
       seenShortId: i.string().optional(),
       seenPostId: i.string().optional(),
+      archived: i.boolean().optional(),
+      tags: i.string().optional(),
     }),
     notifications: i.entity({
       monitorId: i.string().indexed(),
@@ -43,6 +45,8 @@ const _schema = i.schema({
       active: i.boolean(),
       lastFetch: i.number().optional(),
       itemCount: i.number().optional(),
+      archived: i.boolean().optional(),
+      tags: i.string().optional(),
     }),
     feedItems: i.entity({
       feedId: i.string().indexed(),
@@ -52,6 +56,7 @@ const _schema = i.schema({
       description: i.string().optional(),
       read: i.boolean(),
       addedAt: i.number(),
+      bookmarked: i.boolean().optional(),
     }),
     userPrefs: i.entity({
       userId: i.string().unique().indexed(),

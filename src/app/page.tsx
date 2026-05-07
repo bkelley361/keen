@@ -24,7 +24,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   ContextMenu,
@@ -33,7 +33,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, Copy } from "lucide-react";
+import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, Copy, Folder, Archive, ArchiveRestore, Tag } from "lucide-react";
 
 interface MonitorData {
   id: string;
@@ -51,6 +51,9 @@ interface MonitorData {
   lastPostText?: string;
   seenShortId?: string;
   seenPostId?: string;
+  group?: string;
+  archived?: boolean;
+  tags?: string;
 }
 
 function resolveLastValue(raw: MonitorData["lastValue"]): string | undefined {
@@ -91,6 +94,10 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
   const [detailOpen, setDetailOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupInput, setGroupInput] = useState("");
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
 
   const hasNewShort = !!monitor.lastShortId && monitor.lastShortId !== monitor.seenShortId;
   const hasNewPost = !!monitor.lastPostId && monitor.lastPostId !== monitor.seenPostId;
@@ -202,7 +209,7 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
                 {monitor.name}
               </CardTitle>
             </div>
-            <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5">
+            <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
               <Badge
                 variant={monitor.type === "youtube" ? "default" : "secondary"}
                 className="text-[10px] px-1.5 py-0"
@@ -217,6 +224,9 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
               >
                 {new URL(monitor.url).hostname.replace(/^www\./, "")}
               </a>
+              {monitor.tags && monitor.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+                <span key={t} className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground rounded-sm">{t}</span>
+              ))}
             </CardDescription>
           </div>
           <Switch checked={monitor.active} onCheckedChange={toggleActive} className="shrink-0 scale-75" />
@@ -429,6 +439,17 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
           <History className="h-4 w-4" />
           History
         </ContextMenuItem>
+        <ContextMenuItem onClick={() => { setGroupInput(monitor.group ?? ""); setGroupOpen(true); }}>
+          <Folder className="h-4 w-4" />
+          Set group
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => { setTagsInput(monitor.tags ?? ""); setTagsOpen(true); }}>
+          <Tag className="h-4 w-4" />
+          Tags
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => db.transact(tx.monitors[monitor.id].update({ archived: !monitor.archived }))}>
+          {monitor.archived ? <><ArchiveRestore className="h-4 w-4" />Unarchive</> : <><Archive className="h-4 w-4" />Archive</>}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={() => setDeleteOpen(true)}
@@ -438,6 +459,56 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
           Delete
         </ContextMenuItem>
       </ContextMenuContent>
+
+      <Dialog open={tagsOpen} onOpenChange={setTagsOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Tags</DialogTitle>
+            <DialogDescription>Comma-separated tags for &quot;{monitor.name}&quot;.</DialogDescription>
+          </DialogHeader>
+          <input
+            className="w-full border border-border rounded px-3 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-ring"
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+            placeholder="news, youtube, tech"
+            onKeyDown={(e) => { if (e.key === "Enter") { db.transact(tx.monitors[monitor.id].update({ tags: tagsInput.trim() || null })); setTagsOpen(false); } }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTagsOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => { db.transact(tx.monitors[monitor.id].update({ tags: tagsInput.trim() || null })); setTagsOpen(false); }}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Set group</DialogTitle>
+            <DialogDescription>Assign &quot;{monitor.name}&quot; to a group. Leave blank to remove from group.</DialogDescription>
+          </DialogHeader>
+          <input
+            className="w-full border border-border rounded px-3 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-ring"
+            value={groupInput}
+            onChange={(e) => setGroupInput(e.target.value)}
+            placeholder="Group name"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                db.transact(tx.monitors[monitor.id].update({ group: groupInput.trim() || null }));
+                setGroupOpen(false);
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setGroupOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => {
+              db.transact(tx.monitors[monitor.id].update({ group: groupInput.trim() || null }));
+              setGroupOpen(false);
+            }}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-md">
@@ -507,12 +578,19 @@ interface FeedData {
   active: boolean;
   lastFetch?: number;
   itemCount?: number;
+  group?: string;
+  archived?: boolean;
+  tags?: string;
 }
 
 function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupInput, setGroupInput] = useState("");
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
 
   const { data } = db.useQuery({
     feedItems: {
@@ -585,13 +663,16 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
                   {feed.name}
                 </CardTitle>
               </div>
-              <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5">
+              <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                   RSS
                 </Badge>
                 {unreadCount > 0 && (
                   <span className="font-medium">{unreadCount} unread</span>
                 )}
+                {feed.tags && feed.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+                  <span key={t} className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground rounded-sm">{t}</span>
+                ))}
               </CardDescription>
             </div>
           </div>
@@ -635,6 +716,17 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
         </ContextMenuItem>
+        <ContextMenuItem onClick={() => { setGroupInput(feed.group ?? ""); setGroupOpen(true); }}>
+          <Folder className="h-4 w-4" />
+          Set group
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => { setTagsInput(feed.tags ?? ""); setTagsOpen(true); }}>
+          <Tag className="h-4 w-4" />
+          Tags
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => db.transact(tx.feeds[feed.id].update({ archived: !feed.archived }))}>
+          {feed.archived ? <><ArchiveRestore className="h-4 w-4" />Unarchive</> : <><Archive className="h-4 w-4" />Archive</>}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={() => setDeleteOpen(true)}
@@ -644,6 +736,56 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
           Delete
         </ContextMenuItem>
       </ContextMenuContent>
+
+      <Dialog open={tagsOpen} onOpenChange={setTagsOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Tags</DialogTitle>
+            <DialogDescription>Comma-separated tags for &quot;{feed.name}&quot;.</DialogDescription>
+          </DialogHeader>
+          <input
+            className="w-full border border-border rounded px-3 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-ring"
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+            placeholder="news, tech, rss"
+            onKeyDown={(e) => { if (e.key === "Enter") { db.transact(tx.feeds[feed.id].update({ tags: tagsInput.trim() || null })); setTagsOpen(false); } }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTagsOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => { db.transact(tx.feeds[feed.id].update({ tags: tagsInput.trim() || null })); setTagsOpen(false); }}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Set group</DialogTitle>
+            <DialogDescription>Assign &quot;{feed.name}&quot; to a group. Leave blank to remove from group.</DialogDescription>
+          </DialogHeader>
+          <input
+            className="w-full border border-border rounded px-3 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-ring"
+            value={groupInput}
+            onChange={(e) => setGroupInput(e.target.value)}
+            placeholder="Group name"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                db.transact(tx.feeds[feed.id].update({ group: groupInput.trim() || null }));
+                setGroupOpen(false);
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setGroupOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => {
+              db.transact(tx.feeds[feed.id].update({ group: groupInput.trim() || null }));
+              setGroupOpen(false);
+            }}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
@@ -671,6 +813,7 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
 
 function Dashboard() {
   const { user } = db.useAuth();
+  const [showArchived, setShowArchived] = useState(false);
   const { data, isLoading } = db.useQuery({
     monitors: { $: { where: { userId: user!.id } } },
   });
@@ -683,12 +826,28 @@ function Dashboard() {
     userPrefs: { $: { where: { userId: user!.id } } },
   });
 
-  const monitors = data?.monitors || [];
-  const feeds = feedsData?.feeds || [];
+  const allMonitors = data?.monitors || [];
+  const allFeeds = feedsData?.feeds || [];
+  const monitors = showArchived
+    ? allMonitors.filter((m) => (m as unknown as MonitorData).archived)
+    : allMonitors.filter((m) => !(m as unknown as MonitorData).archived);
+  const feeds = showArchived
+    ? allFeeds.filter((f) => (f as unknown as FeedData).archived)
+    : allFeeds.filter((f) => !(f as unknown as FeedData).archived);
+  const archivedCount = allMonitors.filter((m) => (m as unknown as MonitorData).archived).length +
+    allFeeds.filter((f) => (f as unknown as FeedData).archived).length;
   const prefs = prefsData?.userPrefs?.[0] as { hideThumbnails?: boolean; cardSort?: string } | undefined;
+
+  const { data: unreadData } = db.useQuery({
+    feedItems: { $: { where: { read: false } } },
+  });
+  const totalUnread = unreadData?.feedItems?.length ?? 0;
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread}) Keen` : "Keen";
+  }, [totalUnread]);
   const hideThumbnails = prefs?.hideThumbnails ?? false;
   const cardSort = (prefs?.cardSort ?? "added") as "added" | "name" | "last-checked" | "status";
-  const hasContent = monitors.length > 0 || feeds.length > 0;
+  const hasContent = allMonitors.length > 0 || allFeeds.length > 0;
 
   type CardItem =
     | { kind: "monitor"; data: (typeof monitors)[number] }
@@ -714,6 +873,19 @@ function Dashboard() {
       return (statusOrder[aStatus as keyof typeof statusOrder] ?? 3) - (statusOrder[bStatus as keyof typeof statusOrder] ?? 3);
     }
     return 0;
+  });
+
+  const groupedCards: { label: string | null; items: CardItem[] }[] = [];
+  for (const card of sortedCards) {
+    const g = ((card.data as unknown as { group?: string }).group) || null;
+    const existing = groupedCards.find((gc) => gc.label === g);
+    if (existing) existing.items.push(card);
+    else groupedCards.push({ label: g, items: [card] });
+  }
+  groupedCards.sort((a, b) => {
+    if (a.label === null) return 1;
+    if (b.label === null) return -1;
+    return a.label.localeCompare(b.label);
   });
 
   return (
@@ -745,6 +917,17 @@ function Dashboard() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 min-w-0">
+              {archivedCount > 0 && (
+                <div className="mb-3 lg:hidden">
+                  <button
+                    onClick={() => setShowArchived((v) => !v)}
+                    className={`text-[11px] px-2.5 py-1 border font-medium transition-colors flex items-center gap-1 ${showArchived ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                  >
+                    <Archive className="h-3 w-3" />
+                    {showArchived ? "Hide archived" : `Archived (${archivedCount})`}
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-1.5 mb-4 lg:hidden">
                 <Dialog>
                   <DialogTrigger
@@ -772,23 +955,35 @@ function Dashboard() {
                   <Button size="sm" className="w-full px-2 text-[11px]">Monitor</Button>
                 </Link>
               </div>
-              <div className="grid grid-flow-dense gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[1fr]">
-                {sortedCards.map((item) =>
-                  item.kind === "monitor" ? (
-                    <MonitorCard
-                      key={item.data.id}
-                      monitor={item.data as unknown as MonitorData}
-                      userId={user!.id}
-                      hideThumbnails={hideThumbnails}
-                    />
-                  ) : (
-                    <FeedCard
-                      key={item.data.id}
-                      feed={item.data as unknown as FeedData}
-                      userId={user!.id}
-                    />
-                  )
-                )}
+              {showArchived && monitors.length === 0 && feeds.length === 0 && (
+                <p className="text-sm text-muted-foreground py-8 text-center">No archived items</p>
+              )}
+              <div className="space-y-6">
+                {groupedCards.map(({ label, items }) => (
+                  <div key={label ?? "__ungrouped__"}>
+                    {label && (
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{label}</p>
+                    )}
+                    <div className="grid grid-flow-dense gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[1fr]">
+                      {items.map((item) =>
+                        item.kind === "monitor" ? (
+                          <MonitorCard
+                            key={item.data.id}
+                            monitor={item.data as unknown as MonitorData}
+                            userId={user!.id}
+                            hideThumbnails={hideThumbnails}
+                          />
+                        ) : (
+                          <FeedCard
+                            key={item.data.id}
+                            feed={item.data as unknown as FeedData}
+                            userId={user!.id}
+                          />
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <aside className="hidden lg:block lg:w-72 shrink-0">
@@ -800,6 +995,15 @@ function Dashboard() {
                   <Button size="sm" className="w-full">Monitor</Button>
                 </Link>
               </div>
+              {archivedCount > 0 && (
+                <button
+                  onClick={() => setShowArchived((v) => !v)}
+                  className={`w-full mb-4 text-[11px] px-2.5 py-1.5 border font-medium transition-colors flex items-center justify-center gap-1.5 ${showArchived ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                >
+                  <Archive className="h-3 w-3" />
+                  {showArchived ? "Hide archived" : `Archived (${archivedCount})`}
+                </button>
+              )}
               <ActivityFeed userId={user!.id} />
             </aside>
           </div>

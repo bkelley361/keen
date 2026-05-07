@@ -1,7 +1,6 @@
 "use client";
 
 import { db, tx } from "@/lib/instant";
-import { X } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -142,7 +141,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
                     setPendingDelete({ id: notif.id, name: monitorName });
                   }
                 }}
-                className="group relative py-1.5 lg:pr-6 border-b border-border/30 last:border-0 cursor-pointer hover:bg-muted/40 -mx-1 px-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+                className="group relative py-1.5 border-b border-border/30 last:border-0 cursor-pointer hover:bg-muted/40 -mx-1 px-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-xs font-medium break-words min-w-0 flex-1">
@@ -161,12 +160,6 @@ export function ActivityFeed({ userId }: { userId: string }) {
                     {notif.newValue}
                   </span>
                 </div>
-                <span
-                  aria-hidden="true"
-                  className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 group-hover:text-destructive items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                >
-                  <X className="h-3 w-3" />
-                </span>
               </div>
             );
           })

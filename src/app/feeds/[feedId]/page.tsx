@@ -5,9 +5,11 @@ import { db, tx } from "@/lib/instant";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Bookmark } from "lucide-react";
 
 function timeAgo(timestamp: number) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -25,6 +27,8 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
   const { user } = db.useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showBookmarks, setShowBookmarks] = useState(false);
 
   const { data } = db.useQuery({
     feeds: { $: { where: { id: feedId } } },
@@ -42,6 +46,7 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
     pubDate: number;
     description: string;
     read: boolean;
+    bookmarked?: boolean;
   }[]).sort((a, b) => (b.pubDate || 0) - (a.pubDate || 0));
 
   if (!user) {
@@ -96,6 +101,11 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
   }
 
   const unreadCount = items.filter((i) => !i.read).length;
+  const bookmarkCount = items.filter((i) => i.bookmarked).length;
+  const baseItems = showBookmarks ? items.filter((i) => i.bookmarked) : items;
+  const filteredItems = search.trim()
+    ? baseItems.filter((i) => i.title.toLowerCase().includes(search.toLowerCase()))
+    : baseItems;
 
   return (
     <div className="flex-1">
@@ -119,40 +129,79 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
             </Button>
           </div>
         </div>
-        <div className="mb-6">
+        <div className="mb-4">
           <h1 className="text-xl font-semibold">{feed?.name as string || "Feed"}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {unreadCount} unread · {items.length} total
+            {unreadCount} unread · {items.length} total{bookmarkCount > 0 ? ` · ${bookmarkCount} bookmarked` : ""}
           </p>
         </div>
+        <div className="flex gap-1.5 mb-3">
+          <button
+            onClick={() => setShowBookmarks(false)}
+            className={`text-[11px] px-2.5 py-1 border font-medium transition-colors ${!showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setShowBookmarks(true)}
+            className={`text-[11px] px-2.5 py-1 border font-medium transition-colors flex items-center gap-1 ${showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+          >
+            <Bookmark className="h-3 w-3" />
+            Saved{bookmarkCount > 0 ? ` ${bookmarkCount}` : ""}
+          </button>
+        </div>
+
+        <Input
+          placeholder="Search articles..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="mb-3 h-8 text-sm"
+        />
 
         <div className="space-y-1">
-          {items.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center">No articles yet</p>
+          {filteredItems.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center">{search ? "No matching articles" : "No articles yet"}</p>
           ) : (
-            items.map((item) => (
-              <Link
-                key={item.id}
-                href={`/feeds/${feedId}/article?item=${item.id}`}
-                onClick={() => markRead(item.id)}
-                className="block"
-              >
-                <div className={`flex items-start gap-3 px-3 py-2.5 rounded-md hover:bg-muted/50 transition-colors ${item.read ? "opacity-60" : ""}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm truncate ${item.read ? "font-normal" : "font-medium"}`}>
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.pubDate ? timeAgo(item.pubDate) : ""}
-                    </p>
+            filteredItems.map((item) => (
+              <div key={item.id} className="group relative flex items-center">
+                <Link
+                  href={`/feeds/${feedId}/article?item=${item.id}`}
+                  onClick={() => markRead(item.id)}
+                  className="block flex-1 min-w-0"
+                >
+                  <div className={`flex items-start gap-3 px-3 py-2.5 rounded-md hover:bg-muted/50 transition-colors ${item.read ? "opacity-60" : ""}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm truncate ${item.read ? "font-normal" : "font-medium"}`}>
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {item.pubDate ? timeAgo(item.pubDate) : ""}
+                      </p>
+                    </div>
+                    {!item.read && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 shrink-0">
+                        new
+                      </Badge>
+                    )}
                   </div>
-                  {!item.read && (
-                    <Badge variant="default" className="text-[10px] px-1.5 py-0 shrink-0">
-                      new
-                    </Badge>
-                  )}
+                </Link>
+                <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.preventDefault(); db.transact(tx.feedItems[item.id].update({ bookmarked: !item.bookmarked })); }}
+                    className={`p-1 rounded hover:text-primary transition-colors ${item.bookmarked ? "text-primary" : "text-muted-foreground"}`}
+                    title={item.bookmarked ? "Remove bookmark" : "Bookmark"}
+                  >
+                    <Bookmark className={`h-3 w-3 ${item.bookmarked ? "fill-current" : ""}`} />
+                  </button>
+                  <button
+                    onClick={() => db.transact(tx.feedItems[item.id].update({ read: !item.read }))}
+                    className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded"
+                    title={item.read ? "Mark unread" : "Mark read"}
+                  >
+                    {item.read ? "unread" : "read"}
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))
           )}
         </div>

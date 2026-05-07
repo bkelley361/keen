@@ -5,6 +5,7 @@ import { db, tx } from "@/lib/instant";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Bookmark } from "lucide-react";
 
 function ArticleContent({ feedId }: { feedId: string }) {
   const { user } = db.useAuth();
@@ -26,6 +27,7 @@ function ArticleContent({ feedId }: { feedId: string }) {
     link: string;
     pubDate: number;
     read: boolean;
+    bookmarked?: boolean;
   } | undefined;
 
   useEffect(() => {
@@ -58,11 +60,33 @@ function ArticleContent({ feedId }: { feedId: string }) {
     db.transact(tx.feedItems[item.id].update({ read: true }));
   }
 
+  function toggleRead() {
+    if (!item) return;
+    db.transact(tx.feedItems[item.id].update({ read: !item.read }));
+  }
+
   return (
     <main className="max-w-2xl mx-auto px-6 py-8">
-      <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => router.push(`/feeds/${feedId}`)}>
-        ← Back to feed
-      </Button>
+      <div className="flex items-center justify-between mb-4">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push(`/feeds/${feedId}`)}>
+          ← Back to feed
+        </Button>
+        {item && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => db.transact(tx.feedItems[item.id].update({ bookmarked: !item.bookmarked }))}
+              className={item.bookmarked ? "text-primary" : ""}
+            >
+              <Bookmark className={`h-4 w-4 ${item.bookmarked ? "fill-current" : ""}`} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={toggleRead}>
+              {item.read ? "Mark unread" : "Mark read"}
+            </Button>
+          </div>
+        )}
+      </div>
       {item ? (
         <article>
           <h1 className="text-2xl font-bold mb-2">{item.title}</h1>
