@@ -33,7 +33,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, TrendingUp, Copy } from "lucide-react";
+import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, Copy } from "lucide-react";
 
 interface MonitorData {
   id: string;
@@ -668,124 +668,6 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
   );
 }
 
-function SummaryButton({ userId, className, compact }: { userId: string; className?: string; compact?: boolean }) {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-
-  const { data: monitorsData } = db.useQuery({
-    monitors: { $: { where: { userId } } },
-  });
-  const myMonitorIds = new Set((monitorsData?.monitors || []).map((m) => m.id));
-
-  const { data: notifData } = db.useQuery({
-    notifications: {
-      $: { order: { serverCreatedAt: "desc" }, limit: 100 },
-    },
-  });
-
-  const recent = (notifData?.notifications || []).filter((n) => {
-    const row = n as unknown as { monitorId: string; sentAt?: number };
-    return (
-      myMonitorIds.has(row.monitorId) &&
-      typeof row.sentAt === "number" &&
-      row.sentAt >= cutoff
-    );
-  });
-
-  if (recent.length === 0) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        disabled
-        className={`gap-1.5 ${className || ""}`}
-      >
-        <TrendingUp className="h-4 w-4" />
-        <span className={`text-muted-foreground font-normal ${compact ? "text-[11px]" : ""}`}>
-          {compact ? "0 in 24h" : "No changes in 24h"}
-        </span>
-      </Button>
-    );
-  }
-
-  const counts = { video: 0, short: 0, post: 0, webpage: 0 };
-  for (const n of recent) {
-    const k = (n as unknown as { kind?: string }).kind;
-    if (k === "video") counts.video++;
-    else if (k === "short") counts.short++;
-    else if (k === "post") counts.post++;
-    else counts.webpage++;
-  }
-
-  const parts: string[] = [];
-  if (counts.video) parts.push(`${counts.video} video${counts.video !== 1 ? "s" : ""}`);
-  if (counts.short) parts.push(`${counts.short} short${counts.short !== 1 ? "s" : ""}`);
-  if (counts.post) parts.push(`${counts.post} post${counts.post !== 1 ? "s" : ""}`);
-  if (counts.webpage) parts.push(`${counts.webpage} webpage${counts.webpage !== 1 ? "s" : ""}`);
-
-  const monitorMap = new Map((monitorsData?.monitors || []).map((m) => [m.id, m]));
-
-  return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button variant="outline" size="sm" className={`gap-1.5 ${compact ? "text-[11px]" : ""} ${className || ""}`}>
-            <TrendingUp className={`text-primary ${compact ? "h-3 w-3" : "h-4 w-4"}`} />
-            <span className="font-semibold">{recent.length}</span>
-            <span className="text-muted-foreground font-normal">in 24h</span>
-          </Button>
-        }
-      />
-      <DialogContent className="max-w-[22rem] sm:max-w-md max-h-[75vh] overflow-y-auto p-4">
-        <DialogHeader>
-          <DialogTitle className="text-base">Last 24 hours</DialogTitle>
-          <DialogDescription className="text-xs">
-            {recent.length} change{recent.length !== 1 ? "s" : ""} · {parts.join(" · ")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1 mt-2">
-          {recent.map((n) => {
-            const row = n as unknown as {
-              id: string;
-              monitorId: string;
-              newValue?: string;
-              sentAt?: number;
-              kind?: string;
-              itemUrl?: string;
-            };
-            const monitor = monitorMap.get(row.monitorId) as
-              | Record<string, unknown>
-              | undefined;
-            const url = row.itemUrl || (monitor?.url as string | undefined);
-            return (
-              <a
-                key={row.id}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col gap-0.5 text-xs py-1.5 px-2 border border-border/40 hover:border-primary/40 hover:bg-muted/40 transition-colors [overflow-wrap:anywhere]"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium truncate">
-                    {(monitor?.name as string) || "Unknown"}
-                  </span>
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] px-1.5 py-0 shrink-0"
-                  >
-                    {row.kind || "change"}
-                  </Badge>
-                </div>
-                <span className="text-muted-foreground">
-                  {row.newValue}
-                </span>
-              </a>
-            );
-          })}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function Dashboard() {
   const { user } = db.useAuth();
@@ -863,8 +745,7 @@ function Dashboard() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 min-w-0">
-              <div className="grid grid-cols-4 gap-1.5 mb-4 lg:hidden">
-                <SummaryButton userId={user!.id} className="w-full px-2" compact />
+              <div className="grid grid-cols-3 gap-1.5 mb-4 lg:hidden">
                 <Dialog>
                   <DialogTrigger
                     render={
@@ -911,8 +792,7 @@ function Dashboard() {
               </div>
             </div>
             <aside className="hidden lg:block lg:w-72 shrink-0">
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <SummaryButton userId={user!.id} className="w-full" />
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 <Link href="/feeds/new" className="w-full">
                   <Button size="sm" className="w-full">Feed</Button>
                 </Link>

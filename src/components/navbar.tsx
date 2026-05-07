@@ -300,6 +300,69 @@ function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string
   );
 }
 
+function RefreshAllButton({ userId }: { userId: string }) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: feedsData } = db.useQuery({
+    feeds: { $: { where: { userId } } },
+  });
+
+  const { data: monitorsData } = db.useQuery({
+    monitors: { $: { where: { userId, active: true } } },
+  });
+
+  async function refreshAll() {
+    setRefreshing(true);
+    try {
+      const feeds = feedsData?.feeds || [];
+      const monitors = monitorsData?.monitors || [];
+
+      const [feedResults, monitorResults] = await Promise.all([
+        Promise.all(
+          feeds.map((feed) =>
+            fetch("/api/feeds/fetch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ feedId: feed.id, userId }),
+            }).then((r) => r.json()).catch(() => ({ added: 0 }))
+          )
+        ),
+        Promise.all(
+          monitors.map((monitor) =>
+            fetch("/api/monitors/check", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ monitorId: monitor.id, userId }),
+            }).then((r) => r.json()).catch(() => ({ changed: false }))
+          )
+        ),
+      ]);
+
+      const newArticles = feedResults.reduce((sum, r) => sum + (r.added || 0), 0);
+      const changes = monitorResults.filter((r) => r.changed).length;
+
+      if (newArticles > 0 || changes > 0) {
+        const parts = [];
+        if (changes > 0) parts.push(`${changes} monitor change${changes !== 1 ? "s" : ""}`);
+        if (newArticles > 0) parts.push(`${newArticles} new article${newArticles !== 1 ? "s" : ""}`);
+        toast.success(parts.join(" · "));
+      } else {
+        toast.info("Everything is up to date");
+      }
+    } catch {
+      toast.error("Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <Button variant="outline" size="default" onClick={refreshAll} disabled={refreshing}>
+      <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+    </Button>
+  );
+}
+
 export function Navbar() {
   const { user } = db.useAuth();
 
@@ -309,9 +372,12 @@ export function Navbar() {
         <Link href="/" className="font-bold text-2xl tracking-tight" style={{ fontFamily: "var(--font-serif)" }}>
           Keen
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {user && (
-            <SettingsMenu userId={user.id} userEmail={user.email ?? ""} />
+            <>
+              <RefreshAllButton userId={user.id} />
+              <SettingsMenu userId={user.id} userEmail={user.email ?? ""} />
+            </>
           )}
         </div>
       </div>

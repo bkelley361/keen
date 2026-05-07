@@ -101,20 +101,14 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
     <div className="flex-1">
       <Navbar />
       <main className="max-w-2xl mx-auto px-6 py-8">
-        <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => router.push("/")}>
-          ← Back
-        </Button>
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold">{feed?.name as string || "Feed"}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {unreadCount} unread · {items.length} total
-            </p>
-          </div>
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push("/")}>
+            ← Back
+          </Button>
           <div className="flex gap-2">
             {unreadCount > 0 && (
               <Button variant="ghost" size="sm" onClick={markAllRead}>
-                Mark all read
+                Mark read
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
@@ -124,6 +118,12 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
               Delete
             </Button>
           </div>
+        </div>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold">{feed?.name as string || "Feed"}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {unreadCount} unread · {items.length} total
+          </p>
         </div>
 
         <div className="space-y-1">
