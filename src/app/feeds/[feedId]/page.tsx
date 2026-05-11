@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bookmark } from "lucide-react";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 
 function timeAgo(timestamp: number) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -111,14 +111,15 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
     <div className="flex-1">
       <Navbar />
       <main className="max-w-2xl mx-auto px-6 py-8">
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2" onClick={() => router.push("/")}>
+          ← Back
+        </Button>
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push("/")}>
-            ← Back
-          </Button>
+          <h1 className="text-xl font-semibold">{feed?.name as string || "Feed"}</h1>
           <div className="flex gap-2">
             {unreadCount > 0 && (
               <Button variant="ghost" size="sm" onClick={markAllRead}>
-                Mark read
+                Mark all read
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
@@ -129,26 +130,29 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
             </Button>
           </div>
         </div>
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold">{feed?.name as string || "Feed"}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {unreadCount} unread · {items.length} total{bookmarkCount > 0 ? ` · ${bookmarkCount} bookmarked` : ""}
-          </p>
-        </div>
-        <div className="flex gap-1.5 mb-3">
-          <button
-            onClick={() => setShowBookmarks(false)}
-            className={`text-[11px] px-2.5 py-1 border font-medium transition-colors ${!showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setShowBookmarks(true)}
-            className={`text-[11px] px-2.5 py-1 border font-medium transition-colors flex items-center gap-1 ${showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-          >
-            <Bookmark className="h-3 w-3" />
-            Saved{bookmarkCount > 0 ? ` ${bookmarkCount}` : ""}
-          </button>
+        <p className="text-sm text-muted-foreground mb-4">
+          {unreadCount > 0 ? `${unreadCount} unread · ` : ""}{items.length} articles{bookmarkCount > 0 ? ` · ${bookmarkCount} saved` : ""}
+        </p>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setShowBookmarks(false)}
+              className={`text-[11px] px-2.5 py-1 border font-medium transition-colors ${!showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setShowBookmarks(true)}
+              className={`text-[11px] px-2.5 py-1 border font-medium transition-colors flex items-center gap-1 ${showBookmarks ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+            >
+              <Bookmark className="h-3 w-3" />
+              Saved{bookmarkCount > 0 ? ` (${bookmarkCount})` : ""}
+            </button>
+          </div>
+          <Link href="/feeds/saved" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <BookmarkCheck className="h-3 w-3" />
+            All saved
+          </Link>
         </div>
 
         <Input
@@ -158,47 +162,43 @@ export default function FeedPage({ params }: { params: Promise<{ feedId: string 
           className="mb-3 h-8 text-sm"
         />
 
-        <div className="space-y-1">
+        <div className="divide-y divide-border border-t border-b border-border">
           {filteredItems.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">{search ? "No matching articles" : "No articles yet"}</p>
           ) : (
             filteredItems.map((item) => (
-              <div key={item.id} className="group relative flex items-center">
+              <div key={item.id} className={`flex items-center gap-3 px-1 py-2.5 transition-colors hover:bg-muted/30 ${item.read ? "opacity-60" : ""}`}>
                 <Link
                   href={`/feeds/${feedId}/article?item=${item.id}`}
                   onClick={() => markRead(item.id)}
-                  className="block flex-1 min-w-0"
+                  className="flex-1 min-w-0"
                 >
-                  <div className={`flex items-start gap-3 px-3 py-2.5 rounded-md hover:bg-muted/50 transition-colors ${item.read ? "opacity-60" : ""}`}>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-sm truncate ${item.read ? "font-normal" : "font-medium"}`}>
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.pubDate ? timeAgo(item.pubDate) : ""}
-                      </p>
-                    </div>
-                    {!item.read && (
-                      <Badge variant="default" className="text-[10px] px-1.5 py-0 shrink-0">
-                        new
-                      </Badge>
-                    )}
-                  </div>
+                  <p className={`text-sm truncate ${item.read ? "font-normal" : "font-medium"}`}>
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {item.pubDate ? timeAgo(item.pubDate) : ""}
+                    {!item.read && <span className="ml-2 text-primary font-medium">New</span>}
+                  </p>
                 </Link>
-                <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={(e) => { e.preventDefault(); db.transact(tx.feedItems[item.id].update({ bookmarked: !item.bookmarked })); }}
-                    className={`p-1 rounded hover:text-primary transition-colors ${item.bookmarked ? "text-primary" : "text-muted-foreground"}`}
-                    title={item.bookmarked ? "Remove bookmark" : "Bookmark"}
+                    onClick={() => {
+                      const next = !item.bookmarked;
+                      db.transact(tx.feedItems[item.id].update({ bookmarked: next }));
+                      toast.success(next ? "Article saved" : "Removed from saved");
+                    }}
+                    className={`flex items-center gap-1.5 text-xs px-2 py-1 border transition-colors ${item.bookmarked ? "border-primary/50 text-primary bg-primary/5 hover:bg-primary/10" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                    title={item.bookmarked ? "Remove save" : "Save"}
                   >
-                    <Bookmark className={`h-3 w-3 ${item.bookmarked ? "fill-current" : ""}`} />
+                    {item.bookmarked ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+                    {item.bookmarked ? "Saved" : "Save"}
                   </button>
                   <button
                     onClick={() => db.transact(tx.feedItems[item.id].update({ read: !item.read }))}
-                    className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded"
-                    title={item.read ? "Mark unread" : "Mark read"}
+                    className="flex items-center gap-1.5 text-xs px-2 py-1 border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
-                    {item.read ? "unread" : "read"}
+                    {item.read ? "Mark unread" : "Mark read"}
                   </button>
                 </div>
               </div>

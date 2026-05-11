@@ -64,6 +64,25 @@ const _schema = i.schema({
       hideThumbnails: i.boolean().optional(),
       cardSort: i.string().optional(),
     }),
+    monitorTemplates: i.entity({
+      userId: i.string().indexed(),
+      name: i.string(),
+      description: i.string().optional(),
+      icon: i.string().optional(),
+      category: i.string().optional(),
+      isPublic: i.boolean(),
+      // "monitor" or "feed"
+      sourceType: i.string(),
+      // monitor-specific
+      type: i.string().optional(),
+      mode: i.string().optional(),
+      selector: i.string().optional(),
+      clickSelector: i.string().optional(),
+      urlPlaceholder: i.string().optional(),
+      // feed-specific
+      feedUrl: i.string().optional(),
+      createdAt: i.number(),
+    }),
   },
   links: {},
   rooms: {},

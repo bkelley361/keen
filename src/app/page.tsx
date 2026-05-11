@@ -814,15 +814,17 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
 function Dashboard() {
   const { user } = db.useAuth();
   const [showArchived, setShowArchived] = useState(false);
-  const { data, isLoading } = db.useQuery({
+  const { data, isLoading: monitorsLoading } = db.useQuery({
     monitors: { $: { where: { userId: user!.id } } },
   });
-
-  const { data: feedsData } = db.useQuery({
+  const { data: feedsLoadData, isLoading: feedsLoading } = db.useQuery({
     feeds: { $: { where: { userId: user!.id } } },
   });
+  const isLoading = monitorsLoading || feedsLoading;
 
-  const { data: prefsData } = db.useQuery({
+  const feedsData = feedsLoadData;
+
+  const { data: prefsData, isLoading: prefsLoading } = db.useQuery({
     userPrefs: { $: { where: { userId: user!.id } } },
   });
 
@@ -836,6 +838,12 @@ function Dashboard() {
     : allFeeds.filter((f) => !(f as unknown as FeedData).archived);
   const archivedCount = allMonitors.filter((m) => (m as unknown as MonitorData).archived).length +
     allFeeds.filter((f) => (f as unknown as FeedData).archived).length;
+
+  useEffect(() => {
+    if (showArchived && monitors.length === 0 && feeds.length === 0) {
+      setShowArchived(false);
+    }
+  }, [showArchived, monitors.length, feeds.length]);
   const prefs = prefsData?.userPrefs?.[0] as { hideThumbnails?: boolean; cardSort?: string } | undefined;
 
   const { data: unreadData } = db.useQuery({
@@ -847,6 +855,7 @@ function Dashboard() {
   }, [totalUnread]);
   const hideThumbnails = prefs?.hideThumbnails ?? false;
   const cardSort = (prefs?.cardSort ?? "added") as "added" | "name" | "last-checked" | "status";
+  const anyLoading = monitorsLoading || feedsLoading || prefsLoading;
   const hasContent = allMonitors.length > 0 || allFeeds.length > 0;
 
   type CardItem =
@@ -892,23 +901,19 @@ function Dashboard() {
     <div className="flex-1">
       <Navbar />
       <main className="w-full px-6 py-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-muted-foreground text-lg">Loading...</p>
-          </div>
-        ) : !hasContent ? (
+        {anyLoading ? null : !hasContent ? (
           <Card className="border-dashed mt-4">
             <CardContent className="py-16 text-center">
               <div className="max-w-sm mx-auto space-y-4">
                 <p className="text-lg text-muted-foreground">
                   No monitors or feeds yet. Add something to get started.
                 </p>
-                <div className="flex gap-2 justify-center">
-                  <Link href="/feeds/new">
-                    <Button variant="outline" size="lg">Add RSS Feed</Button>
-                  </Link>
+                <div className="flex flex-col items-center gap-3">
                   <Link href="/monitors/new">
-                    <Button size="lg">Create Monitor</Button>
+                    <Button size="lg">Add Monitor</Button>
+                  </Link>
+                  <Link href="/templates" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    or browse templates
                   </Link>
                 </div>
               </div>
@@ -928,14 +933,23 @@ function Dashboard() {
                   </button>
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-1.5 mb-4 lg:hidden">
+              <div className="flex items-center gap-1.5 mb-4 lg:hidden">
+                <Link href="/monitors/new">
+                  <Button size="sm">Add Monitor</Button>
+                </Link>
+                <Link href="/templates">
+                  <Button variant="outline" size="sm">Templates</Button>
+                </Link>
+                <Link href="/feeds/saved">
+                  <Button variant="outline" size="sm">Saved</Button>
+                </Link>
                 <Dialog>
                   <DialogTrigger
                     render={
-                      <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
-                        <Activity className="h-3 w-3" />
-                        <span className="ml-1">Activity</span>
-                      </Button>
+                      <button className="ml-auto text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                        <Activity className="h-3.5 w-3.5" />
+                        Activity
+                      </button>
                     }
                   />
                   <DialogContent className="max-w-[22rem] sm:max-w-sm max-h-[75vh] overflow-y-auto p-4">
@@ -948,12 +962,6 @@ function Dashboard() {
                     <ActivityFeed userId={user!.id} />
                   </DialogContent>
                 </Dialog>
-                <Link href="/feeds/new" className="w-full">
-                  <Button size="sm" className="w-full px-2 text-[11px]">Feed</Button>
-                </Link>
-                <Link href="/monitors/new" className="w-full">
-                  <Button size="sm" className="w-full px-2 text-[11px]">Monitor</Button>
-                </Link>
               </div>
               {showArchived && monitors.length === 0 && feeds.length === 0 && (
                 <p className="text-sm text-muted-foreground py-8 text-center">No archived items</p>
@@ -987,12 +995,15 @@ function Dashboard() {
               </div>
             </div>
             <aside className="hidden lg:block lg:w-72 shrink-0">
+              <Link href="/monitors/new" className="w-full block mb-2">
+                <Button size="sm" className="w-full">Add Monitor</Button>
+              </Link>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <Link href="/feeds/new" className="w-full">
-                  <Button size="sm" className="w-full">Feed</Button>
+                <Link href="/templates" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full">Templates</Button>
                 </Link>
-                <Link href="/monitors/new" className="w-full">
-                  <Button size="sm" className="w-full">Monitor</Button>
+                <Link href="/feeds/saved" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full">Saved Articles</Button>
                 </Link>
               </div>
               {archivedCount > 0 && (
@@ -1017,17 +1028,17 @@ export default function Home() {
   const { isLoading, user } = db.useAuth();
   const router = useRouter();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
+  if (!isLoading && !user) {
     router.push("/login");
     return null;
+  }
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex-1">
+        <Navbar />
+      </div>
+    );
   }
 
   return <Dashboard />;

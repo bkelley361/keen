@@ -15,6 +15,10 @@ import {
 } from "@/components/ui/select";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { TEMPLATES } from "@/lib/templates";
+import Link from "next/link";
+import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog";
+import { BookmarkPlus } from "lucide-react";
 
 function extractChannelId(url: string): string | null {
   const channelMatch = url.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/);
@@ -31,7 +35,7 @@ function NewMonitorForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<"standard" | "price">("standard");
+  const [mode, setMode] = useState<"standard" | "price" | "feed">("standard");
   const [type, setType] = useState<"webpage" | "youtube">("webpage");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -40,11 +44,36 @@ function NewMonitorForm() {
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [detectedPrice, setDetectedPrice] = useState<string | null>(null);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [feedUrl, setFeedUrl] = useState("");
 
   useEffect(() => {
+    const templateId = searchParams.get("templateId");
     const paramUrl = searchParams.get("url");
     const paramSelector = searchParams.get("selector");
     const paramName = searchParams.get("name");
+
+    if (templateId) {
+      const tpl = TEMPLATES.find((t) => t.id === templateId);
+      if (tpl) {
+        setType(tpl.type);
+        setMode(tpl.mode);
+        setName(tpl.name);
+        if (tpl.selector) setSelector(tpl.selector);
+        if (tpl.clickSelector) setClickSelector(tpl.clickSelector);
+        return;
+      }
+    }
+
+    const paramMode = searchParams.get("mode");
+    if (paramMode === "feed") {
+      setMode("feed");
+      const paramFeedUrl = searchParams.get("feedUrl");
+      if (paramFeedUrl) setFeedUrl(paramFeedUrl);
+      if (paramName) setName(paramName);
+      return;
+    }
 
     if (paramUrl) {
       setUrl(paramUrl);
@@ -136,7 +165,7 @@ function NewMonitorForm() {
         })
       );
       toast.success("Monitor created!");
-      router.push("/");
+      setCreated(true);
     } catch {
       toast.error("Failed to create monitor");
     } finally {
@@ -144,11 +173,113 @@ function NewMonitorForm() {
     }
   }
 
+  async function handleFeedSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const feedId = id();
+      db.transact(
+        tx.feeds[feedId].update({
+          userId: user!.id,
+          name: name.trim(),
+          feedUrl: feedUrl.trim(),
+          active: true,
+          lastFetch: 0,
+          itemCount: 0,
+          createdAt: Date.now(),
+        })
+      );
+      await fetch("/api/feeds/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedId, userId: user!.id }),
+      });
+      toast.success("Feed added!");
+      setCreated(true);
+    } catch {
+      toast.error("Failed to add feed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const activeTemplate = (() => {
+    const templateId = searchParams.get("templateId");
+    return templateId ? TEMPLATES.find((t) => t.id === templateId) : null;
+  })();
+
+  if (created) {
+    const isFeed = mode === "feed";
+    return (
+      <div className="flex-1">
+        <Navbar />
+        <main className="max-w-lg mx-auto px-6 py-8">
+          <div className="border border-border p-6 space-y-4">
+            <p className="text-base font-medium">{isFeed ? "Feed added!" : "Monitor created!"}</p>
+            <p className="text-sm text-muted-foreground">
+              Want to save <span className="font-medium">{name}</span> as a reusable template?
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTemplateDialogOpen(true)}
+                className="gap-1.5"
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                Save as template
+              </Button>
+              <Button size="sm" onClick={() => router.push("/")}>
+                Go to dashboard
+              </Button>
+            </div>
+          </div>
+        </main>
+        <SaveAsTemplateDialog
+          open={templateDialogOpen}
+          onOpenChange={(open) => {
+            setTemplateDialogOpen(open);
+            if (!open) router.push("/");
+          }}
+          userId={user.id}
+          defaultName={name}
+          source={
+            isFeed
+              ? { sourceType: "feed", feedUrl: feedUrl || undefined, urlPlaceholder: feedUrl || undefined }
+              : { sourceType: "monitor", type, mode, selector: selector || undefined, clickSelector: clickSelector || undefined, urlPlaceholder: url || undefined }
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1">
       <Navbar />
       <main className="max-w-lg mx-auto px-6 py-8">
-        <h1 className="text-xl font-semibold mb-6">New Monitor</h1>
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2" onClick={() => router.push("/")}>
+          ← Back
+        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-xl font-semibold">New Monitor</h1>
+          {!activeTemplate && (
+            <Link href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Browse templates
+            </Link>
+          )}
+        </div>
+
+        {activeTemplate && (
+          <div className="flex items-center justify-between gap-2 mb-5 px-3 py-2 border border-border bg-muted/40 text-sm">
+            <span>
+              <span className="mr-1.5">{activeTemplate.icon}</span>
+              Using template: <span className="font-medium">{activeTemplate.name}</span>
+            </span>
+            <Link href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+              Change
+            </Link>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-6">
           <Button
@@ -165,9 +296,49 @@ function NewMonitorForm() {
           >
             Watch Price
           </Button>
+          <Button
+            variant={mode === "feed" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode("feed")}
+          >
+            RSS Feed
+          </Button>
         </div>
 
-        {mode === "price" ? (
+        {mode === "feed" ? (
+          <form onSubmit={handleFeedSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="feed-name">Name</Label>
+              <Input
+                id="feed-name"
+                placeholder="e.g. Hacker News, TechCrunch"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="feed-url">Feed URL</Label>
+              <Input
+                id="feed-url"
+                type="url"
+                placeholder="https://example.com/rss.xml"
+                value={feedUrl}
+                onChange={(e) => setFeedUrl(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">RSS or Atom feed URL</p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => router.push("/")}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Adding..." : "Add Feed"}
+              </Button>
+            </div>
+          </form>
+        ) : mode === "price" ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="name">Name</Label>

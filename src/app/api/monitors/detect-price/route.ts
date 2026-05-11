@@ -79,8 +79,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "URL is required" }, { status: 400 });
   }
 
+  const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
   try {
-    const result = await detectPriceFromPage(url, PRICE_SELECTORS);
+    const result = await detectPriceFromPage(normalizedUrl, PRICE_SELECTORS);
     if (result) {
       return Response.json({ selector: result.selector, detectedPrice: result.price });
     }
