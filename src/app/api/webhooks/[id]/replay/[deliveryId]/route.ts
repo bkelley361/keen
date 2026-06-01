@@ -4,15 +4,16 @@ import crypto from "crypto";
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string; deliveryId: string } }
+  { params }: { params: Promise<{ id: string; deliveryId: string }> }
 ) {
+  const { id: endpointId, deliveryId } = await params;
   const userId = request.headers.get("x-user-id");
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Fetch the endpoint and original delivery in parallel
   const [endpointData, deliveryData] = await Promise.all([
-    adminDb.query({ webhookEndpoints: { $: { where: { id: params.id, userId } } } }),
-    adminDb.query({ webhookDeliveries: { $: { where: { id: params.deliveryId } } } }),
+    adminDb.query({ webhookEndpoints: { $: { where: { id: endpointId, userId } } } }),
+    adminDb.query({ webhookDeliveries: { $: { where: { id: deliveryId } } } }),
   ]);
 
   const endpoint = endpointData?.webhookEndpoints?.[0] as

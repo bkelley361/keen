@@ -1,7 +1,8 @@
 import { adminDb } from "@/lib/instant-admin";
 import { computeDiff } from "@/lib/diff";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  await params;
   const userId = request.headers.get("x-user-id");
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 

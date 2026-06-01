@@ -1,6 +1,7 @@
 import { adminDb } from "@/lib/instant-admin";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const userId = request.headers.get("x-user-id");
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -8,7 +9,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const limit = parseInt(url.searchParams.get("limit") || "20", 10);
 
   const data = await adminDb.query({
-    snapshots: { $: { where: { monitorId: params.id } } },
+    snapshots: { $: { where: { monitorId: id } } },
   });
 
   const snapshots = (data?.snapshots || []).sort(

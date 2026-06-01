@@ -1,11 +1,12 @@
 import { adminDb } from "@/lib/instant-admin";
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const userId = request.headers.get("x-user-id");
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const data = await adminDb.query({
-    notificationChannels: { $: { where: { id: params.id, userId } } },
+    notificationChannels: { $: { where: { id, userId } } },
   });
 
   const channel = data?.notificationChannels?.[0] as
