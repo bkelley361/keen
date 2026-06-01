@@ -82,7 +82,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="lg:sticky lg:top-6 lg:border-l lg:border-border lg:pl-6">
+    <div className="lg:border-l lg:border-border lg:pl-6 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 hidden lg:block">
         Recent Activity
       </h3>
@@ -115,7 +115,7 @@ export function ActivityFeed({ userId }: { userId: string }) {
           );
         })}
       </div>
-      <div className="lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto overflow-x-hidden space-y-1">
+      <div className="lg:flex-1 lg:overflow-y-auto overflow-x-hidden space-y-1 lg:min-h-0">
         {notifications.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4">
             No changes detected yet

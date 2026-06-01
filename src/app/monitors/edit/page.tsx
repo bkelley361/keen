@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { RuleBuilder } from "@/components/rule-builder";
+import type { RuleGroup } from "@/lib/rules";
 
 function EditMonitorForm() {
   const { isLoading: authLoading, user } = db.useAuth();
@@ -35,6 +37,7 @@ function EditMonitorForm() {
         url: string;
         selector?: string;
         clickSelector?: string;
+        rules?: string;
       }
     | undefined;
 
@@ -43,6 +46,7 @@ function EditMonitorForm() {
   const [url, setUrl] = useState("");
   const [selector, setSelector] = useState("");
   const [clickSelector, setClickSelector] = useState("");
+  const [rules, setRules] = useState<RuleGroup | null>(null);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -53,6 +57,7 @@ function EditMonitorForm() {
       setUrl(monitor.url || "");
       setSelector(monitor.selector || "");
       setClickSelector(monitor.clickSelector || "");
+      setRules(monitor.rules ? JSON.parse(monitor.rules) : null);
       setLoaded(true);
     }
   }, [monitor, loaded]);
@@ -111,6 +116,7 @@ function EditMonitorForm() {
             type === "webpage" && clickSelector.trim()
               ? clickSelector.trim()
               : "",
+          rules: rules ? JSON.stringify(rules) : "",
         })
       );
       toast.success("Monitor updated!");
@@ -203,6 +209,14 @@ function EditMonitorForm() {
               </p>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label>Alert Rules <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            <p className="text-xs text-muted-foreground">Only send notifications when these conditions are met.</p>
+            <div className="rounded-md border border-input p-3">
+              <RuleBuilder value={rules} onChange={setRules} />
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.push("/")}>

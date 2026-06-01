@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keen</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      min-height: 200px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      background: oklch(0.14 0.005 250);
+      color: oklch(0.92 0.01 80);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid oklch(0.26 0.01 250);
+    }
+
+    .logo { font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
+
+    .user-email {
+      font-size: 11px;
+      color: oklch(0.6 0.01 80);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .signout-btn {
+      background: none;
+      border: none;
+      color: oklch(0.6 0.01 80);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    .signout-btn:hover { color: oklch(0.92 0.01 80); }
+
+    .content { padding: 12px 14px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      color: oklch(0.6 0.01 80);
+      margin-bottom: 3px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 5px 8px;
+      background: oklch(0.18 0.008 250);
+      border: 1px solid oklch(0.26 0.01 250);
+      border-radius: 2px;
+      color: oklch(0.92 0.01 80);
+      font-size: 12px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: oklch(0.75 0.16 55); }
+    input::placeholder { color: oklch(0.4 0.01 250); }
+
+    #code-row { display: flex; gap: 6px; margin-top: 8px; }
+    #code-row input { flex: 1; }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid oklch(0.26 0.01 250);
+      margin-bottom: 12px;
+    }
+    .tab {
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      color: oklch(0.6 0.01 80);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+    .tab.active { color: oklch(0.92 0.01 80); border-bottom-color: oklch(0.75 0.16 55); }
+
+    .field { margin-bottom: 10px; }
+
+    .feed-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border: 1px solid oklch(0.26 0.01 250);
+      border-radius: 2px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      background: oklch(0.18 0.008 250);
+    }
+    .feed-pill:hover { border-color: oklch(0.75 0.16 55); }
+    .feed-pill span { color: oklch(0.6 0.01 80); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+    .feed-pill-use { color: oklch(0.75 0.16 55); font-weight: 600; white-space: nowrap; margin-left: 8px; }
+
+    .selector-row { display: flex; gap: 6px; }
+    .selector-row input { flex: 1; }
+
+    .btn {
+      padding: 6px 12px;
+      border-radius: 2px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: oklch(0.75 0.16 55); color: oklch(0.12 0.01 60); border: none; }
+    .btn-primary:hover:not(:disabled) { background: oklch(0.70 0.16 55); }
+    .btn-outline { background: transparent; border: 1px solid oklch(0.26 0.01 250); color: oklch(0.92 0.01 80); }
+    .btn-outline:hover:not(:disabled) { background: oklch(0.22 0.008 250); }
+    .btn-sm { padding: 4px 8px; font-size: 11px; }
+    .btn-full { width: 100%; }
+
+    .actions { display: flex; gap: 6px; margin-top: 12px; }
+
+    .hint { font-size: 10px; color: oklch(0.4 0.01 250); margin-top: 3px; }
+
+    .msg {
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 2px;
+      margin-bottom: 10px;
+    }
+    .msg-success { background: oklch(0.25 0.08 145 / 0.3); border: 1px solid oklch(0.5 0.15 145 / 0.4); color: oklch(0.75 0.15 145); }
+    .msg-error { background: oklch(0.25 0.1 25 / 0.3); border: 1px solid oklch(0.55 0.2 25 / 0.4); color: oklch(0.75 0.18 25); }
+
+    .picking-banner {
+      background: oklch(0.22 0.008 250);
+      border: 1px solid oklch(0.75 0.16 55);
+      border-radius: 2px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: oklch(0.75 0.16 55);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .picking-banner button {
+      background: none;
+      border: none;
+      color: oklch(0.75 0.16 55);
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: oklch(0.4 0.01 250);
+      margin-bottom: 6px;
+    }
+
+    #spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: oklch(0.4 0.01 250);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">Keen</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="user-email" id="header-email"></span>
+      <button class="signout-btn" id="signout-btn" style="display:none">Sign out</button>
+    </div>
+  </div>
+
+  <div id="spinner">Loading...</div>
+
+  <!-- Auth view -->
+  <div id="auth-view" style="display:none" class="content">
+    <div id="email-step">
+      <div class="field">
+        <label>Sign in to Keen</label>
+        <input type="email" id="auth-email" placeholder="you@example.com" />
+      </div>
+      <button class="btn btn-primary btn-full" id="send-code-btn">Send magic link</button>
+      <div class="hint" style="margin-top:6px">Check your email for a sign-in link.</div>
+    </div>
+    <div id="code-step" style="display:none">
+      <div class="field">
+        <label>Enter the code from your email</label>
+        <div id="code-row">
+          <input type="text" id="auth-code" placeholder="123456" maxlength="8" />
+          <button class="btn btn-primary" id="verify-code-btn">Verify</button>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" id="back-to-email-btn" style="margin-top:4px">← Back</button>
+    </div>
+    <div id="auth-msg"></div>
+  </div>
+
+  <!-- Main view -->
+  <div id="main-view" style="display:none" class="content">
+    <div id="main-msg"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="monitor">Monitor</button>
+      <button class="tab" data-tab="feed">RSS Feed</button>
+    </div>
+
+    <!-- Monitor tab -->
+    <div id="tab-monitor">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="mon-name" placeholder="e.g. GPU Price" />
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <input type="url" id="mon-url" placeholder="https://..." />
+      </div>
+      <div class="field">
+        <label>CSS Selector</label>
+        <div class="selector-row">
+          <input type="text" id="mon-selector" placeholder=".price, #product-price" class="font-mono" />
+          <button class="btn btn-outline btn-sm" id="pick-btn">Pick</button>
+        </div>
+        <div class="hint">Or click Pick to select an element on the page.</div>
+      </div>
+      <div id="picking-banner" class="picking-banner" style="display:none">
+        <span>Click any element on the page…</span>
+        <button id="cancel-pick-btn">Cancel</button>
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <select id="mon-type">
+          <option value="webpage">Web Page</option>
+          <option value="youtube">YouTube</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary btn-full" id="add-monitor-btn">Add Monitor</button>
+      </div>
+    </div>
+
+    <!-- Feed tab -->
+    <div id="tab-feed" style="display:none">
+      <div id="detected-feeds"></div>
+      <div class="field">
+        <label>Feed Name</label>
+        <input type="text" id="feed-name" placeholder="e.g. Hacker News" />
+      </div>
+      <div class="field">
+        <label>Feed URL</label>
+        <input type="url" id="feed-url" placeholder="https://example.com/rss.xml" />
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary btn-full" id="add-feed-btn">Add Feed</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

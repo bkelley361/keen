@@ -49,6 +49,62 @@ const rules = {
       delete: "auth.id != null && data.userId == auth.id",
     },
   },
+  spaces: {
+    allow: {
+      view: "auth.id != null && data.userId == auth.id",
+      create: "auth.id != null && data.userId == auth.id",
+      update: "auth.id != null && data.userId == auth.id",
+      delete: "auth.id != null && data.userId == auth.id",
+    },
+  },
+  sourceEntities: {
+    allow: {
+      view: "auth.id != null",
+      create: "auth.id != null",
+      update: "auth.id != null",
+      delete: "auth.id != null",
+    },
+  },
+  monitorEvents: {
+    allow: {
+      view: "auth.id != null",
+      create: "auth.id != null",
+      update: "auth.id != null",
+      delete: "auth.id != null",
+    },
+  },
+  webhookEndpoints: {
+    allow: {
+      view: "auth.id != null && data.userId == auth.id",
+      create: "auth.id != null && data.userId == auth.id",
+      update: "auth.id != null && data.userId == auth.id",
+      delete: "auth.id != null && data.userId == auth.id",
+    },
+  },
+  webhookDeliveries: {
+    allow: {
+      view: "auth.id != null",
+      create: "auth.id != null",
+      update: "auth.id != null",
+      delete: "auth.id != null",
+    },
+  },
+  snapshots: {
+    allow: {
+      view: "auth.id != null",
+      create: "auth.id != null",
+      update: "auth.id != null",
+      delete: "auth.id != null",
+    },
+  },
+  notificationChannels: {
+    allow: {
+      view: "auth.id != null && data.userId == auth.id",
+      create: "auth.id != null && data.userId == auth.id",
+      update: "auth.id != null && data.userId == auth.id",
+      delete: "auth.id != null && data.userId == auth.id",
+    },
+  },
 } satisfies InstantRules;
 
 export default rules;

@@ -19,6 +19,7 @@ import { TEMPLATES } from "@/lib/templates";
 import Link from "next/link";
 import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog";
 import { BookmarkPlus } from "lucide-react";
+import { SpaceSelectInline } from "@/components/space-select-inline";
 
 function extractChannelId(url: string): string | null {
   const channelMatch = url.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/);
@@ -41,6 +42,7 @@ function NewMonitorForm() {
   const [url, setUrl] = useState("");
   const [selector, setSelector] = useState("");
   const [clickSelector, setClickSelector] = useState("");
+  const [spaceId, setSpaceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [detectedPrice, setDetectedPrice] = useState<string | null>(null);
@@ -161,6 +163,9 @@ function NewMonitorForm() {
           lastValue: "",
           lastChecked: 0,
           active: true,
+          spaceId: spaceId || null,
+          status: "active",
+          frequencySeconds: 14400,
           createdAt: Date.now(),
         })
       );
@@ -379,6 +384,8 @@ function NewMonitorForm() {
               </div>
             )}
 
+            <SpaceSelectInline userId={user!.id} value={spaceId} onChange={setSpaceId} />
+
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => router.push("/")}>
                 Cancel
@@ -465,6 +472,8 @@ function NewMonitorForm() {
                 </p>
               </div>
             )}
+
+            <SpaceSelectInline userId={user!.id} value={spaceId} onChange={setSpaceId} />
 
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => router.push("/")}>

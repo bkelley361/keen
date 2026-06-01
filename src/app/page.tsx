@@ -33,7 +33,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, Copy, Folder, Archive, ArchiveRestore, Tag } from "lucide-react";
+import { Trash2, Pencil, History, RefreshCw, Bell, Activity, ExternalLink, Pause, Play, Copy, Folder, Archive, ArchiveRestore, Tag, CheckCheck } from "lucide-react";
+import { HistoryTab } from "@/components/history-tab";
 
 interface MonitorData {
   id: string;
@@ -98,6 +99,7 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
   const [groupInput, setGroupInput] = useState("");
   const [tagsOpen, setTagsOpen] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
+  const [historyTab, setHistoryTab] = useState<"notifications" | "snapshots">("notifications");
 
   const hasNewShort = !!monitor.lastShortId && monitor.lastShortId !== monitor.seenShortId;
   const hasNewPost = !!monitor.lastPostId && monitor.lastPostId !== monitor.seenPostId;
@@ -277,6 +279,17 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
                 : "Never"}
             </p>
             <div className="flex gap-0.5">
+              {(monitor.lastStatus === "changed" || monitor.lastStatus === "error") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => db.transact(tx.monitors[monitor.id].update({ lastStatus: "ok" }))}
+                  title="Mark as read"
+                >
+                  <CheckCheck className="h-3 w-3" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -511,38 +524,52 @@ function MonitorCard({ monitor, userId, hideThumbnails }: { monitor: MonitorData
       </Dialog>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Change History</DialogTitle>
+            <DialogTitle>History</DialogTitle>
             <DialogDescription>{monitor.name}</DialogDescription>
           </DialogHeader>
-          <div className="max-h-96 overflow-y-auto space-y-3">
-            {notifications.length === 0 ? (
-              <p className="text-base text-muted-foreground py-6 text-center">
-                No changes detected yet
-              </p>
-            ) : (
-              (notifications as unknown as NotificationData[]).map((n) => (
-                <div
-                  key={n.id}
-                  className="border border-border p-4 space-y-2"
-                >
-                  <p className="text-sm text-muted-foreground">
-                    {n.sentAt
-                      ? new Date(n.sentAt).toLocaleString()
-                      : "Unknown"}
+          <div className="space-y-3">
+            <div className="flex gap-1 border-b border-border">
+              <button
+                className={`px-3 py-1.5 text-sm -mb-px border-b-2 transition-colors ${historyTab === "notifications" ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setHistoryTab("notifications")}
+              >
+                Notifications
+              </button>
+              <button
+                className={`px-3 py-1.5 text-sm -mb-px border-b-2 transition-colors ${historyTab === "snapshots" ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setHistoryTab("snapshots")}
+              >
+                Snapshots
+              </button>
+            </div>
+
+            {historyTab === "notifications" ? (
+              <div className="max-h-80 overflow-y-auto space-y-3">
+                {notifications.length === 0 ? (
+                  <p className="text-base text-muted-foreground py-6 text-center">
+                    No changes detected yet
                   </p>
-                  <div className="text-base [overflow-wrap:anywhere]">
-                    <span className="text-red-400 line-through">
-                      {n.oldValue || "(empty)"}
-                    </span>
-                    {" → "}
-                    <span className="text-green-400 font-medium">
-                      {n.newValue}
-                    </span>
-                  </div>
-                </div>
-              ))
+                ) : (
+                  (notifications as unknown as NotificationData[]).map((n) => (
+                    <div key={n.id} className="border border-border p-4 space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        {n.sentAt ? new Date(n.sentAt).toLocaleString() : "Unknown"}
+                      </p>
+                      <div className="text-base [overflow-wrap:anywhere]">
+                        <span className="text-red-400 line-through">{n.oldValue || "(empty)"}</span>
+                        {" → "}
+                        <span className="text-green-400 font-medium">{n.newValue}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto">
+                <HistoryTab monitorId={monitor.id} monitorType={monitor.type} userId={userId} />
+              </div>
             )}
           </div>
         </DialogContent>
@@ -687,6 +714,21 @@ function FeedCard({ feed, userId }: { feed: FeedData; userId: string }) {
                 {feed.lastFetch ? timeAgo(feed.lastFetch) : "Never"}
               </p>
               <div className="flex gap-0.5">
+                {unreadCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const items = data?.feedItems || [];
+                      if (items.length) db.transact(items.map((i) => tx.feedItems[i.id].update({ read: true })));
+                    }}
+                    title="Mark all as read"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -994,7 +1036,7 @@ function Dashboard() {
                 ))}
               </div>
             </div>
-            <aside className="hidden lg:block lg:w-72 shrink-0">
+            <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 sticky top-16 max-h-[calc(100vh-6.1rem)] self-start">
               <Link href="/monitors/new" className="w-full block mb-2">
                 <Button size="sm" className="w-full">Add Monitor</Button>
               </Link>

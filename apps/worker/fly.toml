@@ -1,0 +1,27 @@
+# fly.toml — Keen Worker
+# Deploy with: fly deploy
+# Set secrets with: fly secrets set INSTANT_APP_ID=... INSTANT_ADMIN_TOKEN=... UPSTASH_REDIS_URL=...
+
+app = "keen-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.tcp_checks]]
+    grace_period = "10s"
+    interval = "30s"
+    restart_limit = 3
+    timeout = "5s"
+
+[resources]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog";
 import { BookmarkPlus } from "lucide-react";
+import { SpaceSelectInline } from "@/components/space-select-inline";
 
 function NewFeedForm() {
   const { isLoading, user } = db.useAuth();
@@ -24,6 +25,7 @@ function NewFeedForm() {
     if (paramName) setName(paramName);
     if (paramFeedUrl) setFeedUrl(paramFeedUrl);
   }, [searchParams]);
+  const [spaceId, setSpaceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [created, setCreated] = useState(false);
@@ -57,6 +59,7 @@ function NewFeedForm() {
           active: true,
           lastFetch: 0,
           itemCount: 0,
+          spaceId: spaceId || null,
           createdAt: Date.now(),
         })
       );
@@ -156,6 +159,8 @@ function NewFeedForm() {
               RSS or Atom feed URL
             </p>
           </div>
+
+          <SpaceSelectInline userId={user!.id} value={spaceId} onChange={setSpaceId} />
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.push("/")}>

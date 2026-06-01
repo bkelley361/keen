@@ -23,7 +23,18 @@ const _schema = i.schema({
       seenShortId: i.string().optional(),
       seenPostId: i.string().optional(),
       archived: i.boolean().optional(),
+      group: i.string().optional(),
       tags: i.string().optional(),
+      // Spaces
+      spaceId: i.string().optional().indexed(),
+      // Worker scheduling
+      frequencySeconds: i.number().optional(),
+      nextCheckAt: i.number().optional(),
+      lastCheckedAt: i.number().optional(),
+      status: i.string().optional(), // 'active' | 'paused' | 'error' | 'archived'
+      costClass: i.string().optional(), // 'low' | 'medium' | 'high'
+      // Advanced rules (stored as JSON string)
+      rules: i.string().optional(),
     }),
     notifications: i.entity({
       monitorId: i.string().indexed(),
@@ -46,7 +57,9 @@ const _schema = i.schema({
       lastFetch: i.number().optional(),
       itemCount: i.number().optional(),
       archived: i.boolean().optional(),
+      group: i.string().optional(),
       tags: i.string().optional(),
+      spaceId: i.string().optional().indexed(),
     }),
     feedItems: i.entity({
       feedId: i.string().indexed(),
@@ -71,16 +84,75 @@ const _schema = i.schema({
       icon: i.string().optional(),
       category: i.string().optional(),
       isPublic: i.boolean(),
-      // "monitor" or "feed"
       sourceType: i.string(),
-      // monitor-specific
       type: i.string().optional(),
       mode: i.string().optional(),
       selector: i.string().optional(),
       clickSelector: i.string().optional(),
       urlPlaceholder: i.string().optional(),
-      // feed-specific
       feedUrl: i.string().optional(),
+      createdAt: i.number(),
+    }),
+    // Spaces — organizational containers for monitors and feeds
+    spaces: i.entity({
+      userId: i.string().indexed(),
+      name: i.string(),
+      color: i.string().optional(),
+      icon: i.string().optional(),
+      archived: i.boolean().optional(),
+      notificationSettings: i.string().optional(), // JSON string
+      createdAt: i.number(),
+    }),
+    // Source deduplication for shared polling
+    sourceEntities: i.entity({
+      sourceType: i.string(), // 'rss' | 'youtube' | 'webpage'
+      canonicalUrl: i.string().indexed(),
+      lastPolledAt: i.number().optional(),
+      lastHash: i.string().optional(),
+    }),
+    // Monitor change events
+    monitorEvents: i.entity({
+      monitorId: i.string().indexed(),
+      eventType: i.string(), // e.g. 'website.changed', 'price.dropped', 'rss.new_item'
+      payload: i.string(), // JSON string
+      createdAt: i.number(),
+    }),
+    // Webhook endpoints configured by users
+    webhookEndpoints: i.entity({
+      userId: i.string().indexed(),
+      url: i.string(),
+      description: i.string().optional(),
+      secret: i.string(),
+      eventSubscriptions: i.string(), // JSON array of event type strings
+      enabled: i.boolean(),
+      createdAt: i.number(),
+    }),
+    // Webhook delivery log
+    webhookDeliveries: i.entity({
+      webhookId: i.string().indexed(),
+      eventId: i.string().optional(),
+      status: i.string(), // 'delivered' | 'failed' | 'pending'
+      responseCode: i.number().optional(),
+      attemptCount: i.number(),
+      payload: i.string(), // JSON string of original payload
+      createdAt: i.number(),
+      lastAttemptAt: i.number().optional(),
+    }),
+    // Historical snapshots of monitored content
+    snapshots: i.entity({
+      monitorId: i.string().indexed(),
+      contentHash: i.string(),
+      contentText: i.string().optional(),
+      numericValue: i.number().optional(),
+      createdAt: i.number(),
+    }),
+    // Notification delivery channels per user
+    notificationChannels: i.entity({
+      userId: i.string().indexed(),
+      type: i.string(), // 'email' | 'discord' | 'slack' | 'telegram' | 'webhook'
+      config: i.string(), // JSON string of channel-specific config
+      spaceId: i.string().optional(), // if set, only for this space
+      enabled: i.boolean(),
       createdAt: i.number(),
     }),
   },

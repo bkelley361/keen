@@ -2,17 +2,9 @@
 
 import { db, tx, id as instantId } from "@/lib/instant";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { Settings, LogOut, Mail, ImageOff, Sun, Moon, ArrowUpDown, Copy, RefreshCw, Search } from "lucide-react";
+import { Settings, LogOut, ImageOff, Sun, Moon, ArrowUpDown, Copy, RefreshCw, Search, Webhook, Bell } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
@@ -23,67 +15,8 @@ import { cn } from "@/lib/utils";
 const itemClass = "flex cursor-pointer select-none items-center justify-between gap-2 px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground";
 const sectionLabelClass = "px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground";
 
-function ChangeEmailDialog({
-  userId,
-  currentEmail,
-  notificationEmail,
-  onClose,
-}: {
-  userId: string;
-  currentEmail: string;
-  notificationEmail: string;
-  onClose: () => void;
-}) {
-  const [email, setEmail] = useState(notificationEmail || currentEmail);
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/user/prefs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, notificationEmail: email }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Notification email updated");
-      onClose();
-    } catch {
-      toast.error("Failed to update email");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="notif-email">Notification email</Label>
-        <Input
-          id="notif-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={currentEmail}
-        />
-        <p className="text-xs text-muted-foreground">
-          Change alerts will be sent here instead of your login email.
-        </p>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={save} disabled={saving || !email}>
-          Save
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string }) {
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [feedToken, setFeedToken] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
 
@@ -174,19 +107,6 @@ function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string
                 {notificationEmail || userEmail}
               </div>
 
-              {/* Account section */}
-              <div className={sectionLabelClass}>Account</div>
-              <Menu.Item
-                closeOnClick={false}
-                className={itemClass}
-                onClick={() => setEmailDialogOpen(true)}
-              >
-                <span className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Notification email
-                </span>
-              </Menu.Item>
-
               {/* RSS Feed section */}
               <div className="-mx-1 my-1 h-px bg-border" />
               <div className={sectionLabelClass}>RSS Feed</div>
@@ -265,6 +185,28 @@ function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string
                 </span>
               </Menu.Item>
 
+              {/* Integrations */}
+              <div className="-mx-1 my-1 h-px bg-border" />
+              <div className={sectionLabelClass}>Integrations</div>
+              <Menu.Item
+                className={itemClass}
+                render={<Link href="/webhooks" />}
+              >
+                <span className="flex items-center gap-2">
+                  <Webhook className="h-4 w-4" />
+                  Webhooks
+                </span>
+              </Menu.Item>
+              <Menu.Item
+                className={itemClass}
+                render={<Link href="/settings/notifications" />}
+              >
+                <span className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Notifications
+                </span>
+              </Menu.Item>
+
               {/* Sign out */}
               <div className="-mx-1 my-1 h-px bg-border" />
               <Menu.Item
@@ -281,22 +223,6 @@ function SettingsMenu({ userId, userEmail }: { userId: string; userEmail: string
         </Menu.Portal>
       </Menu.Root>
 
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Notification email</DialogTitle>
-            <DialogDescription>
-              Set a different email address to receive change alerts.
-            </DialogDescription>
-          </DialogHeader>
-          <ChangeEmailDialog
-            userId={userId}
-            currentEmail={userEmail}
-            notificationEmail={notificationEmail}
-            onClose={() => setEmailDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
